@@ -97,16 +97,17 @@ async function start() {
       return { status: 'ok', timestamp: new Date().toISOString() };
     });
 
-    // Temporary endpoint to run simple seed
+    // Temporary endpoint to run production seed
     fastify.post('/api/setup-db', async (request, reply) => {
       try {
         const { execSync } = require('child_process');
         
-        // Run simple seed
-        execSync('node dist/seed-simple.js', { stdio: 'inherit' });
+        // Run production seed
+        execSync('node seed-production.js', { stdio: 'inherit', cwd: process.cwd() });
         
         return { success: true, message: 'Database setup completed' };
       } catch (error: any) {
+        fastify.log.error('Seed error:', error);
         return reply.code(500).send({ 
           success: false, 
           error: error.message 
