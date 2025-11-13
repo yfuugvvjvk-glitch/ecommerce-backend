@@ -97,16 +97,13 @@ async function start() {
       return { status: 'ok', timestamp: new Date().toISOString() };
     });
 
-    // Temporary endpoint to run migrations and seed
+    // Temporary endpoint to run simple seed
     fastify.post('/api/setup-db', async (request, reply) => {
       try {
         const { execSync } = require('child_process');
         
-        // Run migrations
-        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-        
-        // Run seed
-        execSync('npx prisma db seed', { stdio: 'inherit' });
+        // Run simple seed
+        execSync('node dist/seed-simple.js', { stdio: 'inherit' });
         
         return { success: true, message: 'Database setup completed' };
       } catch (error: any) {
