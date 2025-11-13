@@ -98,23 +98,28 @@ async function main() {
     },
   ];
 
-  for (const product of products) {
-    const { category, ...productData } = product;
-    const categoryId = createdCategories[category]?.id;
-    
-    if (!categoryId) continue;
-    
-    await prisma.dataItem.upsert({
-      where: { title: product.title },
-      update: {},
-      create: {
-        ...productData,
-        categoryId,
-      },
-    });
+  // Check if products already exist
+  const existingProducts = await prisma.dataItem.count();
+  
+  if (existingProducts === 0) {
+    for (const product of products) {
+      const { category, ...productData } = product;
+      const categoryId = createdCategories[category]?.id;
+      
+      if (!categoryId) continue;
+      
+      await prisma.dataItem.create({
+        data: {
+          ...productData,
+          categoryId,
+        },
+      });
+    }
+    console.log(`✅ Created ${products.length} sample products`);
+  } else {
+    console.log(`ℹ️  Products already exist, skipping...`);
   }
 
-  console.log(`✅ Created ${products.length} sample products`);
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n👤 Admin Credentials:');
   console.log('   Email: admin@example.com');
