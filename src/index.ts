@@ -101,9 +101,17 @@ async function start() {
     fastify.post('/api/setup-db', async (request, reply) => {
       try {
         const { execSync } = require('child_process');
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
+        
+        // Delete existing products
+        await prisma.dataItem.deleteMany({});
+        fastify.log.info('Deleted existing products');
         
         // Run production seed
         execSync('node seed-production.js', { stdio: 'inherit', cwd: process.cwd() });
+        
+        await prisma.$disconnect();
         
         return { success: true, message: 'Database setup completed' };
       } catch (error: any) {
