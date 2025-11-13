@@ -97,6 +97,26 @@ async function start() {
       return { status: 'ok', timestamp: new Date().toISOString() };
     });
 
+    // Temporary endpoint to run migrations and seed
+    fastify.post('/api/setup-db', async (request, reply) => {
+      try {
+        const { execSync } = require('child_process');
+        
+        // Run migrations
+        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+        
+        // Run seed
+        execSync('npx prisma db seed', { stdio: 'inherit' });
+        
+        return { success: true, message: 'Database setup completed' };
+      } catch (error: any) {
+        return reply.code(500).send({ 
+          success: false, 
+          error: error.message 
+        });
+      }
+    });
+
     // Register data routes
     await fastify.register(dataRoutes, { prefix: '/api/data' });
     
