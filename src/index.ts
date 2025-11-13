@@ -109,7 +109,7 @@ async function start() {
         fastify.log.info('Deleted existing products');
         
         // Run production seed
-        execSync('node seed-production.js', { stdio: 'inherit', cwd: process.cwd() });
+        execSync('node seed-production-full.js', { stdio: 'inherit', cwd: process.cwd() });
         
         await prisma.$disconnect();
         
