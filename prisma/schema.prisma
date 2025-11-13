@@ -1,0 +1,295 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  address   String?
+  avatar    String?
+  role      String   @default("user")
+  locale    String   @default("ro")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dataItems         DataItem[]
+  reviews           Review[]
+  favorites         Favorite[]
+  orders            Order[]
+  cartItems         CartItem[]
+  vouchers          Voucher[]
+  userVouchers      UserVoucher[]
+  voucherRequests   VoucherRequest[]
+  navigationHistory NavigationHistory[]
+
+  @@index([email])
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  slug      String     @unique
+  nameRo    String?
+  nameEn    String?
+  icon      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  dataItems DataItem[]
+
+  @@index([slug])
+}
+
+model DataItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  content     String   @db.Text
+  price       Float
+  oldPrice    Float?
+  stock       Int      @default(0)
+  image       String
+  categoryId  String
+  status      String   @default("draft")
+  rating      Float    @default(0)
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category          Category            @relation(fields: [categoryId], references: [id])
+  reviews           Review[]
+  favorites         Favorite[]
+  orderItems        OrderItem[]
+  cartItems         CartItem[]
+  productOffers     ProductOffer[]
+  navigationHistory NavigationHistory[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([categoryId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int
+  comment    String   @db.Text
+  userId     String
+  dataItemId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataItem DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dataItemId])
+  @@index([dataItemId])
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  dataItemId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataItem DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dataItemId])
+  @@index([userId])
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  userId          String
+  total           Float
+  status          String   @default("PROCESSING")
+  shippingAddress String   @db.Text
+  deliveryPhone   String?
+  deliveryName    String?
+  paymentMethod   String   @default("cash")
+  deliveryMethod  String   @default("courier")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItems   OrderItem[]
+  voucherUsed  UserVoucher?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  dataItemId String
+  quantity   Int
+  price      Float
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dataItem DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  userId     String
+  dataItemId String
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataItem DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dataItemId])
+  @@index([userId])
+}
+
+model Voucher {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  description   String?
+  discountType  String    @default("PERCENTAGE") // "PERCENTAGE" or "FIXED"
+  discountValue Float
+  minPurchase   Float?
+  maxDiscount   Float?
+  maxUsage      Int?
+  usedCount     Int       @default(0)
+  validFrom     DateTime  @default(now())
+  validUntil    DateTime?
+  isActive      Boolean   @default(true)
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  createdBy    User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  userVouchers UserVoucher[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String
+  eventType String
+  eventData Json
+  timestamp DateTime @default(now())
+  userAgent String
+  ipAddress String
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([timestamp])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model UserVoucher {
+  id         String    @id @default(cuid())
+  userId     String
+  voucherId  String
+  usedAt     DateTime?
+  orderId    String?   @unique
+  createdAt  DateTime  @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voucher Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  order   Order?   @relation(fields: [orderId], references: [id])
+
+  @@unique([userId, voucherId])
+  @@index([userId])
+  @@index([voucherId])
+}
+
+model VoucherRequest {
+  id            String    @id @default(cuid())
+  userId        String
+  code          String    @default("REQUESTED")
+  discountType  String    @default("PERCENTAGE") // "PERCENTAGE" or "FIXED"
+  discountValue Float     @default(10)
+  minPurchase   Float?
+  validUntil    DateTime?
+  description   String    @db.Text
+  status        String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Offer {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  image       String
+  discount    Float    // Percentage
+  validFrom   DateTime @default(now())
+  validUntil  DateTime
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products ProductOffer[]
+
+  @@index([active])
+  @@index([validFrom])
+  @@index([validUntil])
+}
+
+model ProductOffer {
+  id         String   @id @default(cuid())
+  dataItemId String
+  offerId    String
+  createdAt  DateTime @default(now())
+
+  dataItem DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+  offer    Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@unique([dataItemId, offerId])
+  @@index([dataItemId])
+  @@index([offerId])
+}
+
+model NavigationHistory {
+  id         String   @id @default(cuid())
+  userId     String
+  dataItemId String
+  viewedAt   DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataItem DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+
+  @@index([userId, viewedAt])
+  @@index([dataItemId])
+}
