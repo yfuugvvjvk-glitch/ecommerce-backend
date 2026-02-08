@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { CartService } from '../services/cart.service';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { AddToCartSchema, UpdateCartQuantitySchema } from '../schemas/cart.schema';
 
 const cartService = new CartService();
 
@@ -18,15 +19,23 @@ export async function cartRoutes(fastify: FastifyInstance) {
   // Add to cart
   fastify.post('/', { preHandler: authMiddleware }, async (request, reply) => {
     try {
-      const { dataItemId, quantity } = request.body as any;
+      // Validate input with Zod
+      const { dataItemId, quantity } = AddToCartSchema.parse(request.body);
       const cartItem = await cartService.addToCart(
         request.user!.userId,
         dataItemId,
-        quantity || 1
+        quantity
       );
       reply.send(cartItem);
     } catch (error: any) {
-      reply.code(400).send({ error: error.message });
+      if (error.name === 'ZodError') {
+        reply.code(400).send({ 
+          error: 'Validation failed', 
+          details: error.errors.map((e: any) => ({ field: e.path.join('.'), message: e.message }))
+        });
+      } else {
+        reply.code(400).send({ error: error.message });
+      }
     }
   });
 
@@ -34,7 +43,9 @@ export async function cartRoutes(fastify: FastifyInstance) {
   fastify.put('/:id', { preHandler: authMiddleware }, async (request, reply) => {
     try {
       const { id } = request.params as any;
-      const { quantity } = request.body as any;
+      
+      // Validate quantity with Zod
+      const { quantity } = UpdateCartQuantitySchema.parse(request.body);
       const cartItem = await cartService.updateQuantity(
         request.user!.userId,
         id,
@@ -42,7 +53,14 @@ export async function cartRoutes(fastify: FastifyInstance) {
       );
       reply.send(cartItem);
     } catch (error: any) {
-      reply.code(400).send({ error: error.message });
+      if (error.name === 'ZodError') {
+        reply.code(400).send({ 
+          error: 'Validation failed', 
+          details: error.errors.map((e: any) => ({ field: e.path.join('.'), message: e.message }))
+        });
+      } else {
+        reply.code(400).send({ error: error.message });
+      }
     }
   });
 

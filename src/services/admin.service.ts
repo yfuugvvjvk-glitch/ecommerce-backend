@@ -72,6 +72,51 @@ export class AdminService {
     });
   }
 
+  // Get user details including password (for admin password recovery assistance)
+  async getUserDetails(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        address: true,
+        role: true,
+        password: true, // Include password for admin
+        createdAt: true,
+        _count: { 
+          select: { 
+            orders: true,
+            reviews: true,
+            favorites: true
+          } 
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    // Map known password hashes to clear text for admin display
+    // This is for demonstration purposes only - in production, use proper password recovery
+    const passwordMap: { [key: string]: string } = {
+      // Admin password hash for "123"
+      '$2b$10$Bz4KSwbL9Ie0AsVEBKgw9eC0LLYzo9uppsfczX2Bxntj4KDZj.G2u': '123',
+      // User password hashes with unique passwords
+      '$2b$10$ztgx.xBbzeFtJFcNEsk9COFwsZL4fL9umJShi37F1a5Ogt/KGiov.': 'ion123',
+      '$2b$10$g3f5TNeUGMkZE.5Cvx3A9uHg.fCPYwdQLT7jqbLAWTqPCfcPxsPlC': 'maria456',
+      '$2b$10$JVjU6sAlSNr62y7scucK8eNPEaQTWm71fHQv43yDHDzd24wvlV52m': 'andrei789',
+    };
+
+    // Try to get clear password from map, otherwise show partial hash
+    const clearPassword = passwordMap[user.password] || `Hash: ${user.password.substring(0, 20)}...`;
+
+    return {
+      ...user,
+      password: clearPassword
+    };
+  }
+
   // Order management
   async getAllOrders(page: number = 1, limit: number = 20, status?: string) {
     const skip = (page - 1) * limit;
@@ -95,9 +140,62 @@ export class AdminService {
   }
 
   async updateOrderStatus(orderId: string, status: string) {
+    console.log(`🔄 AdminService: Actualizare status comandă ${orderId} la ${status}`);
+    
+    // Găsește comanda cu produsele incluse
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        orderItems: {
+          include: {
+            dataItem: true
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new Error('Comanda nu a fost găsită');
+    }
+
+    // Dacă comanda este anulată, restituie stocul
+    if (status === 'CANCELLED' && order.status !== 'CANCELLED') {
+      console.log(`🔄 Anulare comandă ${orderId}: Restituire stoc pentru ${order.orderItems.length} produse`);
+      
+      for (const item of order.orderItems) {
+        const oldStock = item.dataItem.stock;
+        const newStock = oldStock + item.quantity;
+        
+        await prisma.dataItem.update({
+          where: { id: item.dataItemId },
+          data: {
+            stock: {
+              increment: item.quantity
+            }
+          }
+        });
+        
+        console.log(`📦 Produs ${item.dataItem.title}: Stoc ${oldStock} → ${newStock} (+${item.quantity})`);
+      }
+      
+      console.log(`✅ Stoc actualizat cu succes pentru comanda ${orderId}`);
+    } else if (status === 'CANCELLED') {
+      console.log(`⚠️ Comanda ${orderId} era deja anulată, nu se actualizează stocul`);
+    } else {
+      console.log(`ℹ️ Comanda ${orderId} schimbată la status ${status}, nu necesită actualizare stoc`);
+    }
+
+    // Actualizează statusul comenzii
     return await prisma.order.update({
       where: { id: orderId },
       data: { status },
+      include: {
+        orderItems: {
+          include: {
+            dataItem: true
+          }
+        }
+      }
     });
   }
 

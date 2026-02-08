@@ -63,6 +63,7 @@ export class AuthService {
     const token = generateToken({
       userId: user.id,
       email: user.email,
+      role: user.role,
     });
 
     // Remove password from user object

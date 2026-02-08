@@ -3,15 +3,18 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export class VoucherService {
-  async createVoucher(data: any) {
-    const existing = await prisma.voucher.findUnique({
-      where: { code: data.code.toUpperCase() },
-    });
-
-    if (existing) {
-      throw new Error('Voucher code already exists');
-    }
-
+  async createVoucher(data: {
+    code: string;
+    description?: string;
+    discountType: string;
+    discountValue: number;
+    minPurchase?: number;
+    maxDiscount?: number;
+    maxUsage?: number;
+    validFrom?: Date;
+    validUntil?: Date;
+    createdById: string;
+  }) {
     return await prisma.voucher.create({
       data: {
         ...data,
@@ -22,7 +25,7 @@ export class VoucherService {
 
   async validateVoucher(code: string, cartTotal: number) {
     const voucher = await prisma.voucher.findUnique({
-      where: { code: code.toUpperCase() },
+      where: { code: code.toUpperCase() }, // Case insensitive
     });
 
     if (!voucher || !voucher.isActive) {
@@ -39,7 +42,8 @@ export class VoucherService {
     }
 
     let discount = 0;
-    if (voucher.discountType === 'percentage') {
+    // Case insensitive comparison
+    if (voucher.discountType.toLowerCase() === 'percentage') {
       discount = (cartTotal * voucher.discountValue) / 100;
       if (voucher.maxDiscount && discount > voucher.maxDiscount) {
         discount = voucher.maxDiscount;
@@ -50,8 +54,8 @@ export class VoucherService {
 
     return {
       voucher,
-      discount: Math.min(discount, cartTotal),
-      finalTotal: Math.max(0, cartTotal - discount),
+      discount,
+      finalTotal: Math.max(0, cartTotal - discount)
     };
   }
 
@@ -71,9 +75,7 @@ export class VoucherService {
   async getUserVouchers(userId: string) {
     return await prisma.userVoucher.findMany({
       where: { userId },
-      include: {
-        voucher: true,
-      },
+      include: { voucher: true },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -86,19 +88,10 @@ export class VoucherService {
     validUntil: Date | null;
     description: string;
   }) {
-    // Check if code already exists in requests or vouchers
-    const existingVoucher = await prisma.voucher.findUnique({
-      where: { code: data.code },
-    });
-    
-    if (existingVoucher) {
-      throw new Error('Acest cod de voucher există deja în sistem');
-    }
-
     return await prisma.voucherRequest.create({
       data: {
         userId,
-        code: data.code,
+        code: data.code.toUpperCase(),
         discountType: data.discountType,
         discountValue: data.discountValue,
         minPurchase: data.minPurchase,
@@ -117,49 +110,42 @@ export class VoucherService {
   }
 
   async updateUserVoucherRequest(requestId: string, userId: string, data: any) {
-    // Verify ownership
-    const request = await prisma.voucherRequest.findUnique({
-      where: { id: requestId },
+    const request = await prisma.voucherRequest.findFirst({
+      where: { id: requestId, userId },
     });
 
     if (!request) {
-      throw new Error('Request not found');
+      throw new Error('Voucher request not found');
     }
 
-    if (request.userId !== userId) {
-      throw new Error('Unauthorized');
-    }
-
-    // Only allow editing pending requests
     if (request.status !== 'PENDING') {
-      throw new Error('Can only edit pending requests');
+      throw new Error('Cannot update processed voucher request');
     }
 
     return await prisma.voucherRequest.update({
       where: { id: requestId },
       data: {
-        code: data.code,
-        description: data.description,
-        discountType: data.discountType,
-        discountValue: data.discountValue,
-        minPurchase: data.minPurchase,
-        validUntil: data.validUntil ? new Date(data.validUntil) : null,
+        code: data.code?.toUpperCase() || request.code,
+        discountType: data.discountType || request.discountType,
+        discountValue: data.discountValue || request.discountValue,
+        minPurchase: data.minPurchase !== undefined ? data.minPurchase : request.minPurchase,
+        validUntil: data.validUntil !== undefined ? data.validUntil : request.validUntil,
+        description: data.description || request.description,
       },
     });
   }
 
   async deleteUserVoucherRequest(requestId: string, userId: string) {
-    // Verify ownership
-    const request = await prisma.voucherRequest.findUnique({
-      where: { id: requestId },
+    const request = await prisma.voucherRequest.findFirst({
+      where: { id: requestId, userId },
     });
 
     if (!request) {
-      throw new Error('Request not found');
+      throw new Error('Voucher request not found');
     }
 
-    if (request.userId !== userId) {
-      throw new Error('Unauthorized');
+    if (request.status !== 'PENDING') {
+      throw new Error('Cannot delete processed voucher request');
     }
 
     return await prisma.voucherRequest.delete({

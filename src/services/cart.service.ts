@@ -18,16 +18,18 @@ export class CartService {
       0
     );
 
-    return {
+    const result = {
       items: cartItems,
       total,
       itemCount: cartItems.reduce((sum, item) => sum + item.quantity, 0),
     };
+
+    return result;
   }
 
   // Add item to cart
   async addToCart(userId: string, dataItemId: string, quantity: number = 1) {
-    // Check if product exists and has stock
+    // Check if product exists and has available stock
     const product = await prisma.dataItem.findUnique({
       where: { id: dataItemId },
     });
@@ -36,8 +38,10 @@ export class CartService {
       throw new Error('Product not found');
     }
 
-    if (product.stock < quantity) {
-      throw new Error('Insufficient stock');
+    // Check available stock (not reserved)
+    const availableStock = product.availableStock || product.stock;
+    if (availableStock < quantity) {
+      throw new Error(`Insufficient stock. Available: ${availableStock}, Requested: ${quantity}`);
     }
 
     // Check if item already in cart
@@ -53,19 +57,20 @@ export class CartService {
     if (existingItem) {
       // Update quantity
       const newQuantity = existingItem.quantity + quantity;
-      if (product.stock < newQuantity) {
-        throw new Error('Insufficient stock');
+      if (availableStock < newQuantity) {
+        throw new Error(`Insufficient stock. Available: ${availableStock}, Total requested: ${newQuantity}`);
       }
 
-      return await prisma.cartItem.update({
+      const updatedItem = await prisma.cartItem.update({
         where: { id: existingItem.id },
         data: { quantity: newQuantity },
         include: { dataItem: { include: { category: true } } },
       });
+      return updatedItem;
     }
 
     // Create new cart item
-    return await prisma.cartItem.create({
+    const newItem = await prisma.cartItem.create({
       data: {
         userId,
         dataItemId,
@@ -73,6 +78,7 @@ export class CartService {
       },
       include: { dataItem: { include: { category: true } } },
     });
+    return newItem;
   }
 
   // Update cart item quantity
@@ -86,8 +92,10 @@ export class CartService {
       throw new Error('Cart item not found');
     }
 
-    if (cartItem.dataItem.stock < quantity) {
-      throw new Error('Insufficient stock');
+    // Check available stock
+    const availableStock = cartItem.dataItem.availableStock || cartItem.dataItem.stock;
+    if (availableStock < quantity) {
+      throw new Error(`Insufficient stock. Available: ${availableStock}, Requested: ${quantity}`);
     }
 
     if (quantity <= 0) {

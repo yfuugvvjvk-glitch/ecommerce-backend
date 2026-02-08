@@ -1,23 +1,39 @@
 import { AuthService } from '../auth.service';
-import { PrismaClient } from '@prisma/client';
 
-// Mock Prisma
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-  })),
+// Mock the entire auth utils module
+jest.mock('../../utils/auth', () => ({
+  hashPassword: jest.fn().mockResolvedValue('hashedPassword'),
+  comparePassword: jest.fn().mockResolvedValue(true),
+  generateToken: jest.fn().mockReturnValue('mockToken'),
+  verifyToken: jest.fn().mockReturnValue({ userId: '1', email: 'test@example.com', role: 'user' }),
 }));
+
+// Mock Prisma with factory functions
+jest.mock('@prisma/client', () => {
+  const mockUserFindUnique = jest.fn();
+  const mockUserCreate = jest.fn();
+  
+  return {
+    PrismaClient: jest.fn().mockImplementation(() => ({
+      user: {
+        findUnique: mockUserFindUnique,
+        create: mockUserCreate,
+      },
+    })),
+    __mockUserFindUnique: mockUserFindUnique,
+    __mockUserCreate: mockUserCreate,
+  };
+});
+
+// Import the mocked functions
+const { __mockUserFindUnique: mockUserFindUnique, __mockUserCreate: mockUserCreate } = jest.requireMock('@prisma/client');
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let prisma: any;
 
   beforeEach(() => {
     authService = new AuthService();
-    prisma = new PrismaClient();
+    jest.clearAllMocks();
   });
 
   describe('register', () => {
@@ -28,12 +44,16 @@ describe('AuthService', () => {
         name: 'Test User',
         password: 'hashedPassword',
         role: 'user',
+        phone: null,
+        address: null,
+        avatar: null,
+        locale: 'ro',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue(mockUser);
+      mockUserFindUnique.mockResolvedValue(null);
+      mockUserCreate.mockResolvedValue(mockUser);
 
       const result = await authService.register(
         'test@example.com',
@@ -42,11 +62,11 @@ describe('AuthService', () => {
       );
 
       expect(result.email).toBe('test@example.com');
-      expect(prisma.user.create).toHaveBeenCalled();
+      expect(mockUserCreate).toHaveBeenCalled();
     });
 
     it('should throw error if user already exists', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: '1', email: 'test@example.com' });
+      mockUserFindUnique.mockResolvedValue({ id: '1', email: 'test@example.com' });
 
       await expect(
         authService.register('test@example.com', 'password123', 'Test User')
@@ -60,24 +80,28 @@ describe('AuthService', () => {
         id: '1',
         email: 'test@example.com',
         name: 'Test User',
-        password: '$2b$10$...',
+        password: '$2b$10$hashedPassword',
         role: 'user',
+        phone: null,
+        address: null,
+        avatar: null,
+        locale: 'ro',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      prisma.user.findUnique.mockResolvedValue(mockUser);
-
-      // Mock bcrypt compare
-      jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(true);
+      mockUserFindUnique.mockResolvedValue(mockUser);
 
       const result = await authService.login('test@example.com', 'password123');
 
       expect(result).toHaveProperty('token');
       expect(result).toHaveProperty('user');
       expect(result.user.email).toBe('test@example.com');
+      expect(result.token).toBe('mockToken');
     });
 
     it('should throw error on invalid credentials', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      mockUserFindUnique.mockResolvedValue(null);
 
       await expect(
         authService.login('test@example.com', 'wrongpassword')

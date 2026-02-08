@@ -1,0 +1,82 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.authRoutes = authRoutes;
+const auth_service_1 = require("../services/auth.service");
+const auth_schema_1 = require("../schemas/auth.schema");
+const authService = new auth_service_1.AuthService();
+async function authRoutes(fastify) {
+    // Register endpoint
+    fastify.post('/register', async (request, reply) => {
+        try {
+            const body = auth_schema_1.RegisterSchema.parse(request.body);
+            const user = await authService.register(body.email, body.password, body.name);
+            reply.code(201).send({
+                message: 'User registered successfully',
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                },
+            });
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                if (error.message.includes('already exists')) {
+                    reply.code(409).send({ error: error.message });
+                }
+                else {
+                    reply.code(400).send({ error: error.message });
+                }
+            }
+            else {
+                reply.code(500).send({ error: 'Internal server error' });
+            }
+        }
+    });
+    // Login endpoint
+    fastify.post('/login', async (request, reply) => {
+        try {
+            const body = auth_schema_1.LoginSchema.parse(request.body);
+            const result = await authService.login(body.email, body.password);
+            reply.send({
+                token: result.token,
+                user: result.user,
+            });
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                if (error.message.includes('Invalid')) {
+                    reply.code(401).send({ error: error.message });
+                }
+                else {
+                    reply.code(400).send({ error: error.message });
+                }
+            }
+            else {
+                reply.code(500).send({ error: 'Internal server error' });
+            }
+        }
+    });
+    // Get current user endpoint (protected)
+    fastify.get('/me', async (request, reply) => {
+        try {
+            const authHeader = request.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                reply.code(401).send({ error: 'No token provided' });
+                return;
+            }
+            const token = authHeader.substring(7);
+            const user = await authService.verifyToken(token);
+            const { password: _, ...userWithoutPassword } = user;
+            reply.send({ user: userWithoutPassword });
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                reply.code(401).send({ error: error.message });
+            }
+            else {
+                reply.code(500).send({ error: 'Internal server error' });
+            }
+        }
+    });
+}

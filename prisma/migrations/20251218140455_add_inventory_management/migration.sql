@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "DataItem" ADD COLUMN     "isInStock" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "lowStockAlert" INTEGER NOT NULL DEFAULT 5,
+ADD COLUMN     "trackInventory" BOOLEAN NOT NULL DEFAULT true;
