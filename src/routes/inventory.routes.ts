@@ -29,6 +29,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
           trackInventory: true,
           isInStock: true,
           unitName: true,
+          priceType: true,
           stockDisplayMode: true
         }
       });
@@ -43,6 +44,9 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
       const availableStock = product.stock - (product.reservedStock || 0);
       const isAvailable = !product.trackInventory || availableStock >= requestedQty;
 
+      // Pentru produse cu priceType = 'fixed', afișează "bucati" în loc de unitatea de măsură
+      const displayUnit = product.priceType === 'fixed' ? 'bucati' : (product.unitName || 'buc');
+
       reply.send({
         productId: product.id,
         productTitle: product.title,
@@ -51,7 +55,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
         reservedStock: product.reservedStock || 0,
         availableStock,
         requestedQuantity: requestedQty,
-        unitName: product.unitName || 'buc',
+        unitName: displayUnit,
         trackInventory: product.trackInventory,
         stockDisplayMode: product.stockDisplayMode || 'visible'
       });
@@ -80,7 +84,8 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
           stock: true,
           reservedStock: true,
           trackInventory: true,
-          unitName: true
+          unitName: true,
+          priceType: true
         }
       });
 
@@ -98,6 +103,9 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
         const availableStock = product.stock - (product.reservedStock || 0);
         const isAvailable = !product.trackInventory || availableStock >= item.quantity;
 
+        // Pentru produse cu priceType = 'fixed', afișează "bucati" în loc de unitatea de măsură
+        const displayUnit = product.priceType === 'fixed' ? 'bucati' : (product.unitName || 'buc');
+
         return {
           productId: product.id,
           productTitle: product.title,
@@ -106,7 +114,7 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
           reservedStock: product.reservedStock || 0,
           availableStock,
           requestedQuantity: item.quantity,
-          unitName: product.unitName || 'buc'
+          unitName: displayUnit
         };
       });
 
