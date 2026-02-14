@@ -55,10 +55,12 @@ async function publicRoutes(fastify) {
                 phone: location.phone,
                 email: location.email,
                 deliveryFee: location.deliveryFee,
+                deliveryRadius: location.deliveryRadius, // ADĂUGAT pentru validarea razei
                 freeDeliveryThreshold: location.freeDeliveryThreshold,
                 workingHours: location.workingHours ? JSON.parse(location.workingHours) : null,
                 specialInstructions: location.specialInstructions,
-                isMainLocation: location.isMainLocation
+                isMainLocation: location.isMainLocation,
+                coordinates: location.coordinates // ADĂUGAT pentru calculul distanței
             }));
             reply.send(publicLocations);
         }
@@ -200,6 +202,34 @@ async function publicRoutes(fastify) {
             reply.code(500).send({ error: errorMessage });
         }
     });
+    // === BANNER ANUNȚURI ===
+    // Obține banner-ul activ pentru afișare publică
+    fastify.get('/announcement-banner', async (request, reply) => {
+        try {
+            const config = await site_config_service_1.siteConfigService.getConfig('announcement_banner');
+            // Returnează null dacă configurația nu există
+            if (!config) {
+                return reply.send({ success: true, data: null });
+            }
+            const bannerConfig = config.value;
+            // Returnează null dacă banner-ul este inactiv
+            if (!bannerConfig.isActive) {
+                return reply.send({ success: true, data: null });
+            }
+            // Returnează null dacă atât titlul cât și descrierea sunt goale
+            const hasTitle = bannerConfig.title && bannerConfig.title.trim().length > 0;
+            const hasDescription = bannerConfig.description && bannerConfig.description.trim().length > 0;
+            if (!hasTitle && !hasDescription) {
+                return reply.send({ success: true, data: null });
+            }
+            // Returnează configurația completă
+            reply.send({ success: true, data: bannerConfig });
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ success: false, error: errorMessage });
+        }
+    });
     // === INFORMAȚII GENERALE ===
     // Obține informațiile de contact și program
     fastify.get('/contact-info', async (request, reply) => {
@@ -246,6 +276,92 @@ async function publicRoutes(fastify) {
         }
         catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // Verifică dacă comenzile sunt blocate
+    fastify.get('/order-blocking-status', async (request, reply) => {
+        try {
+            const config = await site_config_service_1.siteConfigService.getConfig('block_rules');
+            const rules = config && config.value ? JSON.parse(config.value) : [];
+            // Filtrează doar regulile active
+            const activeRules = rules.filter((rule) => rule.isActive);
+            // Verifică dacă există reguli care blochează toate comenzile
+            const blockingRule = activeRules.find((rule) => {
+                if (rule.blockNewOrders) {
+                    // Dacă există blockUntil, verifică dacă suntem încă în perioada de blocare
+                    if (rule.blockUntil) {
+                        const blockUntilDate = new Date(rule.blockUntil);
+                        const now = new Date();
+                        return now < blockUntilDate;
+                    }
+                    // Dacă nu există blockUntil, blocare permanentă
+                    return true;
+                }
+                return false;
+            });
+            if (blockingRule) {
+                return reply.send({
+                    blocked: true,
+                    reason: blockingRule.blockReason || 'Comenzile sunt temporar blocate',
+                    blockUntil: blockingRule.blockUntil || null,
+                    ruleId: blockingRule.id,
+                    ruleName: blockingRule.name
+                });
+            }
+            // Nu există blocare activă
+            reply.send({
+                blocked: false,
+                reason: null,
+                blockUntil: null
+            });
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // === PROGRAME DE LIVRARE PUBLICE ===
+    // Obține programele de livrare active (pentru verificare checkout)
+    fastify.get('/delivery-schedules', async (request, reply) => {
+        try {
+            const config = await site_config_service_1.siteConfigService.getConfig('delivery_schedules');
+            if (config && config.value) {
+                const schedules = JSON.parse(config.value);
+                // Returnează doar programele active
+                const activeSchedules = schedules.filter((s) => s.isActive);
+                reply.send(activeSchedules);
+            }
+            else {
+                // Returnează array gol dacă nu există configurație
+                reply.send([]);
+            }
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Error loading delivery schedules:', error);
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // === REGULI DE BLOCARE PUBLICE ===
+    // Obține regulile de blocare active (pentru verificare checkout)
+    fastify.get('/block-rules', async (request, reply) => {
+        try {
+            const config = await site_config_service_1.siteConfigService.getConfig('block_rules');
+            if (config && config.value) {
+                const rules = JSON.parse(config.value);
+                // Returnează doar regulile active
+                const activeRules = rules.filter((r) => r.isActive);
+                reply.send(activeRules);
+            }
+            else {
+                // Returnează array gol dacă nu există configurație
+                reply.send([]);
+            }
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Error loading block rules:', error);
             reply.code(500).send({ error: errorMessage });
         }
     });

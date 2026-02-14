@@ -1,10 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { chatService } from '../services/chat.service';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { chatAuthMiddleware } from '../middleware/chat-auth.middleware';
 
 export async function chatRoutes(fastify: FastifyInstance) {
   // Obține toate camerele de chat ale utilizatorului
-  fastify.get('/rooms', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.get('/rooms', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const rooms = await chatService.getUserChatRooms(request.user!.userId);
       reply.send(rooms);
@@ -15,7 +16,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Creează un chat direct cu alt utilizator
-  fastify.post('/direct', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.post('/direct', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { targetUserId } = request.body as any;
       
@@ -32,7 +33,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Creează un grup de chat
-  fastify.post('/group', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.post('/group', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { name, description, memberIds } = request.body as any;
       
@@ -54,7 +55,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Creează un chat de support
-  fastify.post('/support', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.post('/support', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const supportRoom = await chatService.createSupportChat(request.user!.userId);
       reply.code(201).send(supportRoom);
@@ -65,7 +66,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Obține mesajele unei camere
-  fastify.get('/rooms/:roomId/messages', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.get('/rooms/:roomId/messages', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId } = request.params as any;
       const { page = 1, limit = 50 } = request.query as any;
@@ -84,7 +85,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Trimite un mesaj
-  fastify.post('/rooms/:roomId/messages', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.post('/rooms/:roomId/messages', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId } = request.params as any;
       const { content, type = 'TEXT', fileUrl, fileName } = request.body as any;
@@ -115,7 +116,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Marchează mesajele ca citite
-  fastify.put('/rooms/:roomId/read', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.put('/rooms/:roomId/read', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId } = request.params as any;
       const { messageIds } = request.body as any;
@@ -143,7 +144,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Adaugă membri într-un grup
-  fastify.post('/rooms/:roomId/members', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.post('/rooms/:roomId/members', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId } = request.params as any;
       const { memberIds } = request.body as any;
@@ -175,7 +176,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Șterge o conversație (doar pentru direct chats și grupuri unde utilizatorul este admin)
-  fastify.delete('/rooms/:roomId', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.delete('/rooms/:roomId', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId } = request.params as any;
 
@@ -197,7 +198,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Părăsește un grup
-  fastify.post('/rooms/:roomId/leave', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.post('/rooms/:roomId/leave', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId } = request.params as any;
 
@@ -219,7 +220,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Obține utilizatorii disponibili pentru chat
-  fastify.get('/available-users', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.get('/available-users', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const users = await chatService.getAvailableUsers(request.user!.userId);
       reply.send(users);
@@ -230,7 +231,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Editează un mesaj
-  fastify.put('/rooms/:roomId/messages/:messageId', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.put('/rooms/:roomId/messages/:messageId', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId, messageId } = request.params as any;
       const { content } = request.body as any;
@@ -250,7 +251,8 @@ export async function chatRoutes(fastify: FastifyInstance) {
         fastify.io.to(roomId).emit('message_edited', {
           messageId,
           content: content.trim(),
-          editedBy: request.user!.userId
+          editedBy: request.user!.userId,
+          roomId
         });
       }
 
@@ -262,7 +264,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   });
 
   // Șterge un mesaj
-  fastify.delete('/rooms/:roomId/messages/:messageId', { preHandler: authMiddleware }, async (request, reply) => {
+  fastify.delete('/rooms/:roomId/messages/:messageId', { preHandler: [authMiddleware, chatAuthMiddleware] }, async (request, reply) => {
     try {
       const { roomId, messageId } = request.params as any;
 
@@ -275,7 +277,8 @@ export async function chatRoutes(fastify: FastifyInstance) {
       if (fastify.io) {
         fastify.io.to(roomId).emit('message_deleted', {
           messageId,
-          deletedBy: request.user!.userId
+          deletedBy: request.user!.userId,
+          roomId
         });
       }
 

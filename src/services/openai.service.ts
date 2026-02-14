@@ -330,23 +330,106 @@ Adresă: Str. Gari nr. 69, Galați, România`;
 Suntem disponibili în programul magazinului fizic sau ne poți scrie oricând!`;
     }
 
-    // Livrare
+    // Livrare - cu date LIVE
     if (message.includes('livrare') || message.includes('livrez') || message.includes('transport') || message.includes('curier')) {
+      try {
+        const deliveryMethods = await prisma.deliverySettings.findMany({
+          where: { isActive: true },
+        });
+
+        if (deliveryMethods.length > 0) {
+          let response = `🚚 **Informații despre livrare:**\n\n`;
+          
+          deliveryMethods.forEach((method: any) => {
+            if (method.type === 'pickup') {
+              response += `📍 **${method.name}**\n`;
+              if (method.deliveryTimeHours) {
+                response += `   ⏱️ Disponibil în: ${method.deliveryTimeHours} ore\n`;
+              }
+              response += `   💰 Cost: GRATUIT\n`;
+            } else {
+              response += `🚚 **${method.name}**\n`;
+              if (method.deliveryTimeHours) {
+                response += `   ⏱️ Timp livrare: ${method.deliveryTimeHours} ore\n`;
+              }
+              if (method.deliveryTimeDays) {
+                response += `   📅 Timp livrare: ${method.deliveryTimeDays} zile\n`;
+              }
+              if (method.cost !== undefined && method.cost !== null) {
+                response += `   💰 Cost: ${method.cost} RON\n`;
+              }
+              if (method.description) {
+                response += `   📝 ${method.description}\n`;
+              }
+            }
+            response += '\n';
+          });
+
+          // Adaugă locații de livrare
+          const locations = await prisma.deliveryLocation.findMany({
+            where: { isActive: true },
+            take: 3,
+          });
+
+          if (locations.length > 0) {
+            response += `📍 **Zone de livrare:**\n`;
+            locations.forEach((loc: any) => {
+              response += `   • ${loc.city}`;
+              if (loc.isMainLocation) {
+                response += ` (Sediu principal)`;
+              }
+              response += '\n';
+            });
+          }
+
+          response += `\n✅ Vei primi un cod de tracking pentru a urmări comanda.`;
+          return response;
+        }
+      } catch (error) {
+        console.error('Error fetching delivery info:', error);
+      }
+
+      // Fallback dacă nu se pot lua datele
       return `🚚 **Informații despre livrare:**
 
-📦 **Livrare standard:** 2-3 zile lucrătoare
-⚡ **Livrare express:** 24 ore
+📦 Verifică metodele de livrare disponibile în coș
+⚡ Livrăm rapid în zona Galați
 
-Livrăm în toată România prin curier rapid. Vei primi un cod de tracking pentru a urmări comanda.`;
+Pentru detalii exacte despre livrare, contactează-ne:
+📧 crys.cristi@yahoo.com
+📱 0753615742`;
     }
 
-    // Plată
+    // Plată - cu date LIVE
     if (message.includes('plat') || message.includes('card') || message.includes('cash') || message.includes('ramburs')) {
+      try {
+        const paymentMethods = await prisma.paymentMethod.findMany({
+          where: { isActive: true },
+        });
+
+        if (paymentMethods.length > 0) {
+          let response = `💳 **Metode de plată acceptate:**\n\n`;
+          
+          paymentMethods.forEach((method: any) => {
+            response += `✅ ${method.name}`;
+            if (method.description) {
+              response += ` - ${method.description}`;
+            }
+            response += '\n';
+          });
+
+          response += `\nToate plățile sunt securizate și procesate în siguranță.`;
+          return response;
+        }
+      } catch (error) {
+        console.error('Error fetching payment info:', error);
+      }
+
+      // Fallback
       return `💳 **Metode de plată acceptate:**
 
 ✅ Card bancar (online)
-✅ Transfer bancar
-✅ Ramburs la livrare (cash sau card la curier)
+✅ Numerar la livrare
 
 Toate plățile sunt securizate și procesate în siguranță.`;
     }
@@ -521,6 +604,139 @@ Pentru asistență suplimentară:
 📱 0753615742`;
     }
 
+    // Status comandă
+    if (message.includes('status') || message.includes('comanda mea') || message.includes('unde este') || message.includes('tracking')) {
+      return `📦 **Status comandă:**
+
+Pentru a verifica statusul comenzii tale:
+1️⃣ Intră în cont pe site
+2️⃣ Mergi la **Istoric Comenzi** (/order-history)
+3️⃣ Vezi toate comenzile și statusul lor în timp real
+
+Statusuri posibile:
+✅ **Confirmată** - Comanda a fost primită
+📦 **În pregătire** - Pregătim produsele
+🚚 **În livrare** - Comanda este pe drum (vei primi cod tracking)
+✅ **Livrată** - Comanda a ajuns la destinație
+
+Pentru detalii suplimentare:
+📧 crys.cristi@yahoo.com
+📱 0753615742`;
+    }
+
+    // Pagini și navigare
+    if (message.includes('pagina') || message.includes('unde găsesc') || message.includes('unde pot') || message.includes('secțiune')) {
+      return `📄 **Pagini disponibile pe site:**
+
+🏠 **Pagina principală** (/) - Produse featured, oferte
+🛍️ **Magazin** (/shop) - Toate produsele
+📂 **Categorii** - Produse organizate pe categorii
+🎁 **Oferte** (/offers) - Oferte speciale active
+🎟️ **Vouchere** (/vouchers) - Vouchere disponibile
+📞 **Contact** (/contact) - Informații de contact și hartă
+ℹ️ **Despre noi** (/about) - Informații despre fermă
+📜 **Istoric comenzi** (/order-history) - Comenzile tale
+👤 **Profil** (/profile) - Setări cont
+
+💡 Toate informațiile de contact le găsești și în **footer-ul paginii**!`;
+    }
+
+    // Traduceri
+    if (message.includes('limba') || message.includes('engleză') || message.includes('română') || message.includes('traducere') || message.includes('language')) {
+      return `🌐 **Traduceri și limbi:**
+
+Site-ul nostru este disponibil în:
+🇷🇴 **Română** (limba principală)
+🇬🇧 **Engleză** (English)
+
+Pentru a schimba limba:
+1️⃣ Caută butonul de limbă în header (sus, dreapta)
+2️⃣ Selectează limba dorită
+3️⃣ Toate textele se vor traduce automat
+
+✅ Produsele, categoriile și paginile sunt traduse complet!`;
+    }
+
+    // Carousel
+    if (message.includes('carousel') || message.includes('carusel') || message.includes('slider') || message.includes('featured')) {
+      return `🎠 **Despre Carousel:**
+
+Carousel-ul (slider-ul) de pe pagina principală afișează:
+⭐ **Produse featured** - Selectate de admin
+🔥 **Produse populare** - Cele mai vândute
+🎁 **Oferte speciale** - Reduceri active
+🆕 **Produse noi** - Adăugate recent
+
+Produsele din carousel sunt actualizate regulat de echipa noastră pentru a-ți oferi cele mai bune recomandări!
+
+💡 Apasă pe orice produs din carousel pentru detalii complete.`;
+    }
+
+    // Schimb valutar
+    if (message.includes('valută') || message.includes('monedă') || message.includes('euro') || message.includes('dolar') || message.includes('currency')) {
+      return `💱 **Schimb valutar:**
+
+Site-ul nostru suportă multiple monede:
+💰 **RON** (Lei români) - moneda principală
+💶 **EUR** (Euro)
+💵 **USD** (Dolari americani)
+...și altele
+
+**Cum funcționează:**
+✅ Cursul valutar se actualizează **automat** zilnic
+✅ Prețurile se convertesc în timp real
+✅ Poți selecta moneda dorită din header
+✅ Plata se face în moneda selectată
+
+💡 Cursurile sunt actualizate de la surse oficiale pentru acuratețe maximă!`;
+    }
+
+    // Ferma / Locație
+    if (message.includes('fermă') || message.includes('ferma') || message.includes('unde sunteți') || message.includes('locație') || message.includes('adresă')) {
+      try {
+        const mainLocation = await prisma.deliveryLocation.findFirst({
+          where: { isMainLocation: true },
+        });
+
+        if (mainLocation) {
+          return `🏡 **Despre ferma noastră:**
+
+📍 **Locație:**
+${mainLocation.name || 'Ferma noastră'}
+${mainLocation.address}
+${mainLocation.city}, ${mainLocation.county || 'Județul Galați'}
+
+📞 **Contact:**
+📧 Email: crys.cristi@yahoo.com
+📱 Telefon: 0753615742
+
+🕐 **Program vizite:**
+Luni - Vineri: 9:00 - 18:00
+Sâmbătă: 10:00 - 14:00
+Duminică: Închis
+
+💡 Poți ridica comenzile personal de la fermă sau poți vizita pentru a vedea produsele!
+
+🗺️ Vezi locația exactă pe pagina **/contact**`;
+        }
+      } catch (error) {
+        // Continue to default
+      }
+
+      return `🏡 **Despre ferma noastră:**
+
+📍 **Locație:** Str. Gari nr. 69, Galați, România
+📧 **Email:** crys.cristi@yahoo.com
+📱 **Telefon:** 0753615742
+
+🕐 **Program:**
+Luni - Vineri: 9:00 - 18:00
+Sâmbătă: 10:00 - 14:00
+Duminică: Închis
+
+💡 Vezi locația exactă pe pagina **/contact**`;
+    }
+
     // Căutare produse specifice
     try {
       const searchTerms = message.split(' ').filter(word => word.length > 3);
@@ -537,15 +753,38 @@ Pentru asistență suplimentară:
 
         if (products.length > 0) {
           let response = `🔍 **Am găsit produse care te-ar putea interesa:**\n\n`;
-          products.forEach(p => {
-            const stock = p.stock > 0 ? `✅ În stoc (${p.stock} buc)` : '❌ Stoc epuizat';
+          products.forEach((p: any) => {
             response += `📦 **${p.title}**\n`;
-            response += `   💰 Preț: ${p.price.toFixed(2)} RON\n`;
+            
+            // Price with unit
+            let priceInfo = `   💰 Preț: ${p.price.toFixed(2)} RON`;
+            if (p.unitType && p.unitType !== 'piece') {
+              priceInfo += `/${p.unitName || p.unitType}`;
+            }
+            response += priceInfo + '\n';
+            
+            // Discount
             if (p.oldPrice && p.oldPrice > p.price) {
               const discount = Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100);
               response += `   🏷️ Reducere: ${discount}% (era ${p.oldPrice.toFixed(2)} RON)\n`;
             }
-            response += `   ${stock}\n\n`;
+            
+            // Stock based on display mode
+            if (p.stockDisplayMode === 'visible' && p.stock > 0) {
+              response += `   ✅ În stoc (${p.stock} ${p.unitName || 'buc'})\n`;
+            } else if (p.stockDisplayMode === 'status_only') {
+              response += p.stock > 0 ? `   ✅ În stoc\n` : `   ❌ Stoc epuizat\n`;
+            } else if (p.stockDisplayMode !== 'hidden' && p.stock === 0) {
+              response += `   ❌ Stoc epuizat\n`;
+            }
+            // If hidden, don't show stock at all
+            
+            // Quantity info
+            if (p.minQuantity && p.minQuantity > 1) {
+              response += `   📏 Cantitate minimă: ${p.minQuantity} ${p.unitName || 'buc'}\n`;
+            }
+            
+            response += '\n';
           });
           return response + `💡 Caută pe site pentru mai multe detalii sau contactează-ne!`;
         }
@@ -564,10 +803,304 @@ Pot să te ajut cu informații despre:
 🔄 **Returnări** - politica de returnare
 🎁 **Oferte** - vouchere și reduceri
 📞 **Contact** - program, telefon, email
+📄 **Pagini** - unde găsești informații
+🌐 **Traduceri** - limbi disponibile
+📦 **Status comandă** - urmărire comenzi
+
+💡 **Informații de contact le găsești și pe pagina /contact și în footer!**
 
 Sau contactează-ne direct:
 📧 crys.cristi@yahoo.com
 📱 0753615742`;
+  }
+
+  /**
+   * Get comprehensive real-time platform data for AI context
+   */
+  private async getPlatformContext(): Promise<string> {
+    try {
+      const [
+        totalProducts,
+        totalOrders,
+        recentOrders,
+        categories,
+        activeOffers,
+        activeVouchers,
+        topProducts,
+        deliveryMethods,
+        paymentMethods,
+        deliveryLocations,
+        siteConfig,
+        pages,
+        giftRules,
+      ] = await Promise.all([
+        prisma.dataItem.count({ where: { status: 'published' } }),
+        prisma.order.count(),
+        prisma.order.count({
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+            },
+          },
+        }),
+        prisma.category.findMany({ 
+          take: 20,
+          include: {
+            subcategories: true,
+          }
+        }),
+        prisma.offer.findMany({
+          where: { active: true, validUntil: { gte: new Date() } },
+          take: 10,
+        }),
+        prisma.voucher.findMany({
+          where: { isActive: true },
+          take: 10,
+        }),
+        prisma.dataItem.findMany({
+          where: { status: 'published', stock: { gt: 0 } },
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          include: { category: true },
+        }),
+        prisma.deliverySettings.findMany({
+          where: { isActive: true },
+        }),
+        prisma.paymentMethod.findMany({
+          where: { isActive: true },
+        }),
+        prisma.deliveryLocation.findMany({
+          where: { isActive: true },
+          take: 10,
+        }),
+        prisma.siteConfig.findMany(),
+        prisma.page.findMany({
+          where: { isPublished: true },
+          select: { slug: true, title: true, metaDescription: true },
+        }),
+        prisma.giftRule.findMany({
+          where: { isActive: true },
+          take: 5,
+        }),
+      ]);
+
+      let context = `\n\n=== DATE LIVE DIN PLATFORMĂ ===\n\n`;
+      
+      // Statistici generale
+      context += `📊 STATISTICI:\n`;
+      context += `- Total produse disponibile: ${totalProducts}\n`;
+      context += `- Total comenzi procesate: ${totalOrders}\n`;
+      context += `- Comenzi în ultima săptămână: ${recentOrders}\n\n`;
+
+      // Configurație site
+      if (siteConfig.length > 0) {
+        context += `⚙️ CONFIGURAȚIE SITE:\n`;
+        siteConfig.forEach((config: any) => {
+          if (config.key && config.value) {
+            context += `- ${config.key}: ${config.value}\n`;
+          }
+        });
+        context += '\n';
+      }
+
+      // Pagini disponibile
+      if (pages.length > 0) {
+        context += `📄 PAGINI DISPONIBILE:\n`;
+        pages.forEach((page: any) => {
+          context += `- /${page.slug} - ${page.title}`;
+          if (page.metaDescription) {
+            context += ` (${page.metaDescription})`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Categorii și subcategorii
+      if (categories.length > 0) {
+        context += `📂 CATEGORII ȘI SUBCATEGORII:\n`;
+        categories.forEach((cat: any) => {
+          context += `- ${cat.icon} ${cat.name}`;
+          if (cat.subcategories && cat.subcategories.length > 0) {
+            context += ` (Subcategorii: ${cat.subcategories.map((sub: any) => sub.name).join(', ')})`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Produse
+      if (topProducts.length > 0) {
+        context += `🛍️ PRODUSE DISPONIBILE (exemple):\n`;
+        topProducts.forEach((p: any) => {
+          // Stock display logic
+          let stockInfo = '';
+          if (p.stockDisplayMode === 'visible' && p.stock > 0) {
+            stockInfo = `În stoc (${p.stock} ${p.unitName || 'buc'})`;
+          } else if (p.stockDisplayMode === 'status_only') {
+            stockInfo = p.stock > 0 ? 'În stoc' : 'Stoc epuizat';
+          } else if (p.stockDisplayMode === 'hidden') {
+            stockInfo = ''; // Nu afișa nimic despre stoc
+          } else if (p.stock === 0) {
+            stockInfo = 'Stoc epuizat';
+          }
+
+          // Unit and price info
+          let priceInfo = `${p.price.toFixed(2)} RON`;
+          if (p.unitType && p.unitType !== 'piece') {
+            priceInfo += `/${p.unitName || p.unitType}`;
+          }
+          if (p.priceType === 'per_unit') {
+            priceInfo += ` (preț per ${p.unitName || 'unitate'})`;
+          }
+
+          context += `- ${p.title}: ${priceInfo}`;
+          
+          if (p.oldPrice && p.oldPrice > p.price) {
+            const discount = Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100);
+            context += ` (reducere ${discount}%, era ${p.oldPrice.toFixed(2)} RON)`;
+          }
+          
+          if (stockInfo) {
+            context += ` - ${stockInfo}`;
+          }
+          
+          if (p.category) {
+            context += ` - Categorie: ${p.category.name}`;
+          }
+          
+          // Quantity info
+          if (p.minQuantity && p.minQuantity > 1) {
+            context += ` - Cantitate minimă: ${p.minQuantity} ${p.unitName || 'buc'}`;
+          }
+          if (p.maxQuantity) {
+            context += ` - Cantitate maximă: ${p.maxQuantity} ${p.unitName || 'buc'}`;
+          }
+          
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Metode de livrare
+      if (deliveryMethods.length > 0) {
+        context += `🚚 METODE DE LIVRARE:\n`;
+        deliveryMethods.forEach((method: any) => {
+          context += `- ${method.name}`;
+          if (method.type === 'pickup') {
+            context += ` (Ridicare personală)`;
+          } else {
+            context += ` (Curier)`;
+          }
+          if (method.deliveryTimeHours) {
+            context += ` - ${method.deliveryTimeHours} ore`;
+          }
+          if (method.deliveryTimeDays) {
+            context += ` - ${method.deliveryTimeDays} zile`;
+          }
+          if (method.cost !== undefined && method.cost !== null) {
+            context += ` - Cost: ${method.cost} RON`;
+          }
+          if (method.description) {
+            context += ` - ${method.description}`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Metode de plată
+      if (paymentMethods.length > 0) {
+        context += `💳 METODE DE PLATĂ:\n`;
+        paymentMethods.forEach((method: any) => {
+          context += `- ${method.name}`;
+          if (method.description) {
+            context += ` - ${method.description}`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Locații de livrare
+      if (deliveryLocations.length > 0) {
+        context += `📍 LOCAȚII/ZONE DE LIVRARE:\n`;
+        deliveryLocations.forEach((loc: any) => {
+          context += `- ${loc.name || loc.address}, ${loc.city}`;
+          if (loc.isMainLocation) {
+            context += ` (Sediu principal/Fermă)`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Oferte active
+      if (activeOffers.length > 0) {
+        context += `🎁 OFERTE ACTIVE:\n`;
+        activeOffers.forEach((offer: any) => {
+          const validDate = new Date(offer.validUntil).toLocaleDateString('ro-RO');
+          context += `- ${offer.title}: ${offer.discount}% reducere (până la ${validDate})`;
+          if (offer.description) {
+            context += ` - ${offer.description}`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Vouchere active
+      if (activeVouchers.length > 0) {
+        context += `🎟️ VOUCHERE ACTIVE:\n`;
+        activeVouchers.forEach((v: any) => {
+          const discount = v.discountType === 'PERCENTAGE' ? `${v.discountValue}%` : `${v.discountValue} RON`;
+          context += `- Cod: ${v.code} - ${discount} reducere`;
+          if (v.description) {
+            context += ` - ${v.description}`;
+          }
+          if (v.minOrderValue) {
+            context += ` (Comandă minimă: ${v.minOrderValue} RON)`;
+          }
+          if (v.maxUses) {
+            context += ` (Utilizări: ${v.usedCount || 0}/${v.maxUses})`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      // Reguli cadouri
+      if (giftRules.length > 0) {
+        context += `🎁 PRODUSE CADOU (Reguli active):\n`;
+        giftRules.forEach((rule: any) => {
+          context += `- ${rule.name}`;
+          if (rule.minOrderValue) {
+            context += ` - La comenzi peste ${rule.minOrderValue} RON`;
+          }
+          if (rule.description) {
+            context += ` - ${rule.description}`;
+          }
+          context += '\n';
+        });
+        context += '\n';
+      }
+
+      context += `\n=== SFATURI PENTRU RĂSPUNSURI ===\n`;
+      context += `- Când utilizatorul întreabă despre CONTACT, menționează că informațiile sunt disponibile și pe pagina /contact\n`;
+      context += `- Când întreabă despre PRODUSE, sugerează să viziteze /shop sau categoriile specifice\n`;
+      context += `- Pentru COMENZI, explică procesul și menționează că pot vedea istoricul în /order-history\n`;
+      context += `- Pentru VOUCHERE, explică cum se aplică și menționează pagina /vouchers\n`;
+      context += `- Pentru LIVRARE, folosește datele LIVE de mai sus\n`;
+      context += `- Pentru BLOCARE COMENZI, explică motivul și când se va ridica blocarea\n`;
+      context += `- Menționează că site-ul are TRADUCERI (română/engleză) disponibile\n`;
+      context += `- Carousel-ul afișează produse featured/recomandate\n`;
+      context += `- Schimbul valutar se actualizează automat pentru prețuri\n`;
+
+      return context;
+    } catch (error) {
+      console.error('Error getting platform context:', error);
+      return '';
+    }
   }
 
   /**
@@ -584,34 +1117,74 @@ Sau contactează-ne direct:
     }
 
     try {
-      // Add system message if not present
+      // Get real-time platform data
+      const platformContext = await this.getPlatformContext();
+
+      // Add system message with comprehensive instructions
       const systemMessage: ChatMessage = {
         role: 'system',
-        content: `Ești un asistent virtual pentru magazinul online Full Stack E-Commerce App. Răspunde ÎNTOTDEAUNA în limba română.
+        content: `Ești un asistent virtual EXPERT pentru magazinul online Full Stack E-Commerce App. Răspunde ÎNTOTDEAUNA în limba română.
 
-INFORMAȚII DESPRE MAGAZIN:
+📍 INFORMAȚII CONTACT:
 - Nume: Full Stack E-Commerce Shop
-- Locație: Str. Gari nr. 69, Galați, România, Cod poștal: 08001
+- Locație/Fermă: Str. Gari nr. 69, Galați, România, Cod poștal: 08001
 - Email: crys.cristi@yahoo.com
 - Telefon: 0753615742
 - Program magazin fizic: Luni-Vineri 9:00-18:00, Sâmbătă 10:00-14:00, Duminică închis
-- Magazin online: Non-stop
+- Magazin online: Non-stop (24/7)
 
-POLITICI:
-- Livrare: 2-3 zile lucrătoare (standard), 24h (express)
-- Metode de plată: Card, transfer bancar, ramburs
-- Returnări: 30 de zile pentru produse în stare originală
-- Vouchere și oferte speciale disponibile
+${platformContext}
 
-AJUTĂ CLIENȚII CU:
-- Informații despre produse și recomandări
-- Status comenzi și livrare
-- Returnări și rambursări
-- Întrebări generale despre cumpărături
-- Vouchere și oferte speciale
-- Informații de contact
+🎯 REGULI CRITICE:
+1. Folosește DOAR datele LIVE de mai sus - NU inventa informații!
+2. Când vorbești despre LIVRARE, PLATĂ, PRODUSE, OFERTE, VOUCHERE - citează datele LIVE
+3. Când utilizatorul întreabă despre CONTACT, menționează că informațiile sunt disponibile și pe pagina /contact și în footer
+4. Pentru COMENZI, explică procesul și menționează /order-history pentru istoric
+5. Pentru VOUCHERE, explică cum se aplică și menționează /vouchers
+6. Pentru PRODUSE, sugerează /shop sau categoriile specifice
+7. Dacă există BLOCĂRI COMENZI active, explică motivul și când se ridică
+8. Site-ul are TRADUCERI (română/engleză) - menționează dacă e relevant
+9. Carousel-ul afișează produse featured/recomandate selectate de admin
+10. Schimbul valutar se actualizează automat - prețurile se afișează în moneda selectată
 
-Fii prietenos, profesional și concis. Răspunde în română. Dacă nu știi ceva specific, sugerează contactarea echipei de suport.`,
+📦 DESPRE PRODUSE:
+- Explică categoriile și subcategoriile disponibile
+- Menționează stocul DOAR dacă stockDisplayMode = "visible" (afișează cantitatea exactă)
+- Dacă stockDisplayMode = "status_only", spune doar "În stoc" sau "Stoc epuizat"
+- Dacă stockDisplayMode = "hidden", NU menționa NIMIC despre stoc
+- Explică unitățile de măsură (kg, litru, bucată, gram, ml)
+- Menționează prețul per unitate (ex: "15 RON/kg", "8 RON/litru")
+- Explică cantitatea minimă/maximă de comandă dacă există
+- Sugerează produse similare din aceeași categorie
+- Explică reducerile active (preț vechi vs nou, procent reducere)
+
+🎁 DESPRE CADOURI ȘI VOUCHERE:
+- Explică regulile de cadouri (la ce sumă se primesc)
+- Cum se generează și se folosesc voucherele
+- Coduri active și condiții de utilizare
+
+🚚 DESPRE LIVRARE:
+- Folosește DOAR datele LIVE despre metode și timpi
+- Explică zonele de livrare disponibile
+- Menționează tracking-ul comenzilor
+
+🚫 DESPRE BLOCĂRI:
+- Dacă există blocări active, explică clar motivul
+- Menționează când se va ridica blocarea
+- Sugerează alternative (ex: ridicare personală)
+
+💡 STIL DE RĂSPUNS:
+- Fii prietenos, profesional și concis
+- Folosește emoji-uri pentru claritate
+- Structurează răspunsurile cu bullet points
+- Menționează paginile relevante din site
+- Dacă nu știi ceva specific, sugerează contactarea echipei
+
+❌ NU FACE:
+- NU inventa informații despre timpi de livrare, prețuri sau produse
+- NU da informații vechi - folosește doar datele LIVE
+- NU ignora blocările active de comenzi
+- NU uita să menționezi paginile relevante din site`,
       };
 
       const allMessages = messages[0]?.role === 'system' 
@@ -625,7 +1198,7 @@ Fii prietenos, profesional și concis. Răspunde în română. Dacă nu știi ce
         max_tokens: 500,
       });
 
-      return completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response. Please try again.';
+      return completion.choices[0]?.message?.content || 'Îmi pare rău, nu am putut genera un răspuns. Te rog încearcă din nou.';
     } catch (error) {
       console.error('Error in chat completion:', error);
       throw new Error('Failed to get AI response. Please try again.');

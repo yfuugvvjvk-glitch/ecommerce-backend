@@ -12,7 +12,13 @@ export class AuthService {
   async register(
     email: string,
     password: string,
-    name: string
+    name: string,
+    phone?: string,
+    city?: string,
+    county?: string,
+    street?: string,
+    streetNumber?: string,
+    addressDetails?: string
   ): Promise<User> {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -32,6 +38,12 @@ export class AuthService {
         email,
         password: hashedPassword,
         name,
+        phone,
+        city,
+        county,
+        street,
+        streetNumber,
+        addressDetails,
         role: 'user',
       },
     });

@@ -13,7 +13,13 @@ export async function authRoutes(fastify: FastifyInstance) {
       const user = await authService.register(
         body.email,
         body.password,
-        body.name
+        body.name,
+        body.phone,
+        body.city,
+        body.county,
+        body.street,
+        body.streetNumber,
+        body.addressDetails
       );
 
       reply.code(201).send({

@@ -22,6 +22,11 @@ export class InvoiceSimpleService {
           include: {
             dataItem: true
           }
+        },
+        deliveryLocation: {
+          include: {
+            deliveryMethod: true
+          }
         }
       }
     });
@@ -51,6 +56,11 @@ export class InvoiceSimpleService {
           include: {
             dataItem: true
           }
+        },
+        deliveryLocation: {
+          include: {
+            deliveryMethod: true
+          }
         }
       }
     });
@@ -71,6 +81,11 @@ export class InvoiceSimpleService {
         orderItems: {
           include: {
             dataItem: true
+          }
+        },
+        deliveryLocation: {
+          include: {
+            deliveryMethod: true
           }
         }
       }
@@ -97,6 +112,11 @@ export class InvoiceSimpleService {
         orderItems: {
           include: {
             dataItem: true
+          }
+        },
+        deliveryLocation: {
+          include: {
+            deliveryMethod: true
           }
         }
       }
@@ -222,6 +242,41 @@ export class InvoiceSimpleService {
     const invoiceDate = new Date(order.createdAt).toLocaleDateString('ro-RO');
     const subtotal = order.orderItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
     
+    // Folosim valori hardcodate pentru simplitate (sau poți trece configMap ca parametru)
+    const companyName = 'Site Comerț Live';
+    const companyAddress = 'Str. Garii nr. 69, Galați, România';
+    const companyEmail = 'crys.cristi@yahoo.com';
+    const companyPhone = '+40 753 615 752';
+    const companyCUI = 'CUI: N/A';
+    const companyRegCom = 'Reg. Com.: N/A';
+    
+    // DEBUG: Log pentru a vedea ce date avem
+    console.log('🔍 DEBUG Invoice HTML Generation:');
+    console.log('Order ID:', order.id);
+    console.log('deliveryMethod (string):', order.deliveryMethod);
+    console.log('deliveryLocationId:', order.deliveryLocationId);
+    console.log('deliveryLocation:', order.deliveryLocation);
+    console.log('deliveryLocation?.deliveryMethod:', order.deliveryLocation?.deliveryMethod);
+    
+    // Determină numele metodei de livrare
+    let deliveryMethodName = 'N/A';
+    if (order.deliveryLocation?.deliveryMethod?.name) {
+      deliveryMethodName = order.deliveryLocation.deliveryMethod.name;
+      console.log('✅ Folosim deliveryLocation.deliveryMethod.name:', deliveryMethodName);
+    } else if (order.deliveryMethod) {
+      // Fallback la valoarea din câmpul deliveryMethod
+      deliveryMethodName = order.deliveryMethod === 'courier' ? 'Curier' : 
+                          order.deliveryMethod === 'pickup' ? 'Ridicare Personală' : 
+                          order.deliveryMethod;
+      console.log('⚠️ Folosim fallback pentru deliveryMethod:', deliveryMethodName);
+    }
+    
+    // Determină numele metodei de plată
+    const paymentMethodName = order.paymentMethod === 'cash' ? 'Numerar' : 
+                             order.paymentMethod === 'card' ? 'Card' : 
+                             order.paymentMethod === 'transfer' ? 'Transfer' : 
+                             order.paymentMethod;
+    
     return `
 <!DOCTYPE html>
 <html lang="ro">
@@ -267,10 +322,10 @@ export class InvoiceSimpleService {
 
   <div class="company-info">
     <h3>Furnizor:</h3>
-    <p><strong>E-Commerce Shop SRL</strong></p>
-    <p>Str. Exemplu Nr. 123, București, România</p>
-    <p>CUI: RO12345678 | Reg. Com.: J40/1234/2024</p>
-    <p>Email: contact@ecommerce.ro | Tel: +40 123 456 789</p>
+    <p><strong>${companyName}</strong></p>
+    <p>${companyAddress}</p>
+    <p>${companyCUI} | ${companyRegCom}</p>
+    <p>Email: ${companyEmail} | Tel: ${companyPhone}</p>
   </div>
 
   <div class="invoice-details">
@@ -284,8 +339,8 @@ export class InvoiceSimpleService {
     <div>
       <h3>Detalii comandă:</h3>
       <p><strong>ID:</strong> ${order.id.slice(0, 8)}</p>
-      <p><strong>Plată:</strong> ${order.paymentMethod === 'cash' ? 'Numerar' : order.paymentMethod === 'card' ? 'Card' : 'Transfer'}</p>
-      <p><strong>Livrare:</strong> ${order.deliveryMethod === 'courier' ? 'Curier' : 'Ridicare'}</p>
+      <p><strong>Plată:</strong> ${paymentMethodName}</p>
+      <p><strong>Livrare:</strong> ${deliveryMethodName}</p>
       ${order.orderLocalTime ? `<p><strong>Timp plasare:</strong> ${order.orderLocalTime}</p>` : ''}
       ${order.orderLocation ? `<p><strong>Locație:</strong> ${order.orderLocation}</p>` : ''}
     </div>
@@ -326,7 +381,7 @@ export class InvoiceSimpleService {
 
   <div class="footer">
     <p>Mulțumim pentru comandă!</p>
-    <p>Pentru întrebări: contact@ecommerce.ro</p>
+    <p>Pentru întrebări: ${companyEmail}</p>
   </div>
 </body>
 </html>

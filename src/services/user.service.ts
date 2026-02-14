@@ -13,9 +13,16 @@ export class UserService {
         name: true,
         phone: true,
         address: true,
+        city: true,
+        county: true,
+        street: true,
+        streetNumber: true,
+        addressDetails: true,
         avatar: true,
         role: true,
+        locale: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -31,6 +38,11 @@ export class UserService {
     email?: string;
     phone?: string;
     address?: string;
+    city?: string;
+    county?: string;
+    street?: string;
+    streetNumber?: string;
+    addressDetails?: string;
     avatar?: string;
     locale?: string;
   }) {
@@ -43,9 +55,16 @@ export class UserService {
         name: true,
         phone: true,
         address: true,
+        city: true,
+        county: true,
+        street: true,
+        streetNumber: true,
+        addressDetails: true,
         avatar: true,
         role: true,
         locale: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }
@@ -60,9 +79,16 @@ export class UserService {
         name: true,
         phone: true,
         address: true,
+        city: true,
+        county: true,
+        street: true,
+        streetNumber: true,
+        addressDetails: true,
         avatar: true,
         role: true,
         locale: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }
@@ -77,6 +103,11 @@ export class UserService {
         name: true,
         phone: true,
         address: true,
+        city: true,
+        county: true,
+        street: true,
+        streetNumber: true,
+        addressDetails: true,
         avatar: true,
         role: true,
         locale: true,
@@ -92,7 +123,18 @@ export class UserService {
         id: true,
         email: true,
         name: true,
+        phone: true,
+        address: true,
+        city: true,
+        county: true,
+        street: true,
+        streetNumber: true,
+        addressDetails: true,
+        avatar: true,
+        role: true,
         locale: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }

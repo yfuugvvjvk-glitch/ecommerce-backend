@@ -84,4 +84,127 @@ export async function cartRoutes(fastify: FastifyInstance) {
       reply.code(500).send({ error: 'Failed to clear cart' });
     }
   });
+
+  // ============================================
+  // GIFT SYSTEM ENDPOINTS
+  // ============================================
+
+  // Evaluate gift rules for current cart
+  fastify.post('/evaluate-gift-rules', { preHandler: authMiddleware }, async (request, reply) => {
+    try {
+      const eligibleRules = await cartService.getEligibleGifts(request.user!.userId);
+      
+      reply.send({
+        success: true,
+        eligibleRules,
+      });
+    } catch (error: any) {
+      console.error('Error evaluating gift rules:', error);
+      reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error.message || 'Failed to evaluate gift rules',
+        },
+      });
+    }
+  });
+
+  // Add gift product to cart
+  fastify.post('/add-gift-product', { preHandler: authMiddleware }, async (request, reply) => {
+    try {
+      console.log('🎁 Add gift product request:', request.body);
+      
+      const { giftRuleId, productId } = request.body as {
+        giftRuleId: string;
+        productId: string;
+      };
+
+      if (!giftRuleId || !productId) {
+        console.log('❌ Missing parameters:', { giftRuleId, productId });
+        return reply.code(400).send({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'giftRuleId and productId are required',
+          },
+        });
+      }
+
+      console.log('👤 User:', request.user);
+      
+      const result = await cartService.addGiftProduct(
+        request.user!.userId,
+        giftRuleId,
+        productId
+      );
+
+      console.log('✅ Gift product added successfully');
+      reply.send(result);
+    } catch (error: any) {
+      console.error('❌ Error adding gift product:', error.message);
+      console.error('Stack:', error.stack);
+      
+      const statusCode = error.message.includes('not found') ? 404 :
+                        error.message.includes('out of stock') ? 409 :
+                        error.message.includes('already') ? 400 : 400;
+
+      reply.code(statusCode).send({
+        success: false,
+        error: {
+          code: statusCode === 404 ? 'NOT_FOUND' :
+                statusCode === 409 ? 'OUT_OF_STOCK' :
+                'INVALID_REQUEST',
+          message: error.message || 'Failed to add gift product',
+        },
+      });
+    }
+  });
+
+  // Remove gift product from cart
+  fastify.delete('/gift-product/:cartItemId', { preHandler: authMiddleware }, async (request, reply) => {
+    try {
+      const { cartItemId } = request.params as { cartItemId: string };
+
+      const result = await cartService.removeGiftProduct(
+        request.user!.userId,
+        cartItemId
+      );
+
+      reply.send(result);
+    } catch (error: any) {
+      console.error('Error removing gift product:', error);
+      
+      const statusCode = error.message.includes('not found') ? 404 : 500;
+
+      reply.code(statusCode).send({
+        success: false,
+        error: {
+          code: statusCode === 404 ? 'NOT_FOUND' : 'INTERNAL_ERROR',
+          message: error.message || 'Failed to remove gift product',
+        },
+      });
+    }
+  });
+
+  // Reevaluate gifts (manual trigger)
+  fastify.post('/reevaluate-gifts', { preHandler: authMiddleware }, async (request, reply) => {
+    try {
+      const result = await cartService.reevaluateGifts(request.user!.userId);
+
+      reply.send({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      console.error('Error reevaluating gifts:', error);
+      reply.code(500).send({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error.message || 'Failed to reevaluate gifts',
+        },
+      });
+    }
+  });
 }

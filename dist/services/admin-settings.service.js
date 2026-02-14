@@ -38,9 +38,11 @@ class AdminSettingsService {
         }
     }
     // Gestionare utilizatori
-    async getAllUsers() {
+    async getAllUsers(skip = 0, limit = 10) {
         try {
             return await prisma_1.prisma.user.findMany({
+                skip,
+                take: limit,
                 select: {
                     id: true,
                     email: true,
@@ -66,6 +68,15 @@ class AdminSettingsService {
             throw new Error('Failed to fetch users');
         }
     }
+    async getUsersCount() {
+        try {
+            return await prisma_1.prisma.user.count();
+        }
+        catch (error) {
+            console.error('Error counting users:', error);
+            throw new Error('Failed to count users');
+        }
+    }
     async getUserDetails(userId) {
         try {
             const user = await prisma_1.prisma.user.findUnique({
@@ -77,6 +88,7 @@ class AdminSettingsService {
                     phone: true,
                     address: true,
                     role: true,
+                    password: true, // Include password hash for admin password recovery assistance
                     createdAt: true,
                     updatedAt: true,
                     orders: {
@@ -172,12 +184,52 @@ class AdminSettingsService {
             throw new Error(error instanceof Error ? error.message : 'Failed to delete user');
         }
     }
+    // Generate temporary password for user (for admin password recovery assistance)
+    async generateTemporaryPassword(userId) {
+        try {
+            const user = await prisma_1.prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true, email: true, name: true }
+            });
+            if (!user) {
+                throw new Error('User not found');
+            }
+            // Generate a random temporary password (8 characters: letters + numbers)
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            let tempPassword = '';
+            for (let i = 0; i < 8; i++) {
+                tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            // Hash the temporary password
+            const bcrypt = require('bcrypt');
+            const hashedPassword = await bcrypt.hash(tempPassword, 10);
+            // Update user's password
+            await prisma_1.prisma.user.update({
+                where: { id: userId },
+                data: { password: hashedPassword }
+            });
+            // Return the plain text temporary password (to be shown to admin)
+            return {
+                userId: user.id,
+                email: user.email,
+                name: user.name,
+                temporaryPassword: tempPassword,
+                message: 'Parolă temporară generată cu succes. Utilizatorul poate folosi această parolă pentru autentificare.'
+            };
+        }
+        catch (error) {
+            console.error('Error generating temporary password:', error);
+            throw new Error('Failed to generate temporary password');
+        }
+    }
     // Gestionare comenzi
-    async getAllOrders(status) {
+    async getAllOrders(status, skip = 0, limit = 10) {
         try {
             const where = status ? { status } : {};
             return await prisma_1.prisma.order.findMany({
                 where,
+                skip,
+                take: limit,
                 include: {
                     user: {
                         select: { name: true, email: true }
@@ -196,6 +248,16 @@ class AdminSettingsService {
         catch (error) {
             console.error('Error fetching orders:', error);
             throw new Error('Failed to fetch orders');
+        }
+    }
+    async getOrdersCount(status) {
+        try {
+            const where = status ? { status } : {};
+            return await prisma_1.prisma.order.count({ where });
+        }
+        catch (error) {
+            console.error('Error counting orders:', error);
+            throw new Error('Failed to count orders');
         }
     }
     async updateOrder(orderId, updateData) {
@@ -233,9 +295,11 @@ class AdminSettingsService {
         }
     }
     // Gestionare vouchere
-    async getAllVouchers() {
+    async getAllVouchers(skip = 0, limit = 10) {
         try {
             return await prisma_1.prisma.voucher.findMany({
+                skip,
+                take: limit,
                 include: {
                     createdBy: {
                         select: { name: true, email: true }
@@ -252,13 +316,37 @@ class AdminSettingsService {
             throw new Error('Failed to fetch vouchers');
         }
     }
+    async getVouchersCount() {
+        try {
+            return await prisma_1.prisma.voucher.count();
+        }
+        catch (error) {
+            console.error('Error counting vouchers:', error);
+            throw new Error('Failed to count vouchers');
+        }
+    }
     async createVoucher(voucherData) {
         try {
+            // Convert empty strings to null for optional fields
+            // Convert datetime-local format to ISO-8601 for validUntil
+            let validUntil = voucherData.validUntil;
+            if (validUntil === '') {
+                validUntil = null;
+            }
+            else if (validUntil && !validUntil.includes('Z') && !validUntil.includes('+')) {
+                // If it's a datetime-local format (YYYY-MM-DDTHH:mm), convert to ISO-8601
+                validUntil = new Date(validUntil).toISOString();
+            }
+            const cleanedData = {
+                ...voucherData,
+                validUntil,
+                minPurchase: voucherData.minPurchase === '' || voucherData.minPurchase === 0 ? null : voucherData.minPurchase,
+                maxDiscount: voucherData.maxDiscount === '' || voucherData.maxDiscount === 0 ? null : voucherData.maxDiscount,
+                maxUsage: voucherData.maxUsage === '' || voucherData.maxUsage === 0 ? null : voucherData.maxUsage,
+                createdById: voucherData.createdById || voucherData.userId
+            };
             return await prisma_1.prisma.voucher.create({
-                data: {
-                    ...voucherData,
-                    createdById: voucherData.createdById || voucherData.userId
-                }
+                data: cleanedData
             });
         }
         catch (error) {
@@ -268,9 +356,26 @@ class AdminSettingsService {
     }
     async updateVoucher(voucherId, updateData) {
         try {
+            // Convert empty strings to null for optional fields
+            // Convert datetime-local format to ISO-8601 for validUntil
+            let validUntil = updateData.validUntil;
+            if (validUntil === '') {
+                validUntil = null;
+            }
+            else if (validUntil && !validUntil.includes('Z') && !validUntil.includes('+')) {
+                // If it's a datetime-local format (YYYY-MM-DDTHH:mm), convert to ISO-8601
+                validUntil = new Date(validUntil).toISOString();
+            }
+            const cleanedData = {
+                ...updateData,
+                validUntil,
+                minPurchase: updateData.minPurchase === '' || updateData.minPurchase === 0 ? null : updateData.minPurchase,
+                maxDiscount: updateData.maxDiscount === '' || updateData.maxDiscount === 0 ? null : updateData.maxDiscount,
+                maxUsage: updateData.maxUsage === '' || updateData.maxUsage === 0 ? null : updateData.maxUsage
+            };
             return await prisma_1.prisma.voucher.update({
                 where: { id: voucherId },
-                data: updateData
+                data: cleanedData
             });
         }
         catch (error) {
@@ -343,9 +448,24 @@ class AdminSettingsService {
     }
     async updateVoucherRequestData(requestId, updateData) {
         try {
+            // Convert empty strings to null for optional fields
+            // Convert datetime-local format to ISO-8601 for validUntil
+            let validUntil = updateData.validUntil;
+            if (validUntil === '') {
+                validUntil = null;
+            }
+            else if (validUntil && !validUntil.includes('Z') && !validUntil.includes('+')) {
+                // If it's a datetime-local format (YYYY-MM-DDTHH:mm), convert to ISO-8601
+                validUntil = new Date(validUntil).toISOString();
+            }
+            const cleanedData = {
+                ...updateData,
+                validUntil,
+                minPurchase: updateData.minPurchase === '' || updateData.minPurchase === 0 ? null : updateData.minPurchase
+            };
             return await prisma_1.prisma.voucherRequest.update({
                 where: { id: requestId },
-                data: updateData,
+                data: cleanedData,
                 include: {
                     user: {
                         select: { name: true, email: true }
@@ -393,9 +513,21 @@ class AdminSettingsService {
     }
     async createOffer(offerData) {
         try {
-            return await prisma_1.prisma.offer.create({
-                data: offerData
+            const { productIds, ...offerFields } = offerData;
+            // Create offer
+            const offer = await prisma_1.prisma.offer.create({
+                data: offerFields
             });
+            // If productIds provided, create ProductOffer relations
+            if (productIds && Array.isArray(productIds) && productIds.length > 0) {
+                await prisma_1.prisma.productOffer.createMany({
+                    data: productIds.map((productId) => ({
+                        offerId: offer.id,
+                        dataItemId: productId
+                    }))
+                });
+            }
+            return offer;
         }
         catch (error) {
             console.error('Error creating offer:', error);
@@ -404,10 +536,29 @@ class AdminSettingsService {
     }
     async updateOffer(offerId, updateData) {
         try {
-            return await prisma_1.prisma.offer.update({
+            const { productIds, ...offerFields } = updateData;
+            // Update offer
+            const offer = await prisma_1.prisma.offer.update({
                 where: { id: offerId },
-                data: updateData
+                data: offerFields
             });
+            // If productIds provided, update ProductOffer relations
+            if (productIds !== undefined) {
+                // Delete existing relations
+                await prisma_1.prisma.productOffer.deleteMany({
+                    where: { offerId }
+                });
+                // Create new relations if any
+                if (Array.isArray(productIds) && productIds.length > 0) {
+                    await prisma_1.prisma.productOffer.createMany({
+                        data: productIds.map((productId) => ({
+                            offerId: offer.id,
+                            dataItemId: productId
+                        }))
+                    });
+                }
+            }
+            return offer;
         }
         catch (error) {
             console.error('Error updating offer:', error);
@@ -448,10 +599,30 @@ class AdminSettingsService {
         if (data.deliveryAreas) {
             updateData.deliveryAreas = JSON.stringify(data.deliveryAreas);
         }
-        return await prisma_1.prisma.deliverySettings.update({
+        const updated = await prisma_1.prisma.deliverySettings.update({
             where: { id },
             data: updateData
         });
+        // Sincronizează locațiile asociate cu această metodă de livrare
+        if (data.isActive !== undefined || data.deliveryCost !== undefined || data.freeDeliveryThreshold !== undefined) {
+            const locationUpdates = {};
+            if (data.isActive !== undefined) {
+                locationUpdates.isActive = data.isActive;
+            }
+            if (data.deliveryCost !== undefined) {
+                locationUpdates.deliveryFee = data.deliveryCost;
+            }
+            if (data.freeDeliveryThreshold !== undefined) {
+                locationUpdates.freeDeliveryThreshold = data.freeDeliveryThreshold;
+            }
+            if (Object.keys(locationUpdates).length > 0) {
+                await prisma_1.prisma.deliveryLocation.updateMany({
+                    where: { deliveryMethodId: id },
+                    data: locationUpdates
+                });
+            }
+        }
+        return updated;
     }
     async getDeliverySettings(activeOnly = false) {
         const settings = await prisma_1.prisma.deliverySettings.findMany({
@@ -678,21 +849,43 @@ class AdminSettingsService {
             }
             // Actualizează stocul pentru fiecare produs din comandă
             for (const item of order.orderItems) {
-                await prisma_1.prisma.dataItem.update({
+                // Verificăm stocul rezervat înainte de decrement
+                const currentProduct = await prisma_1.prisma.dataItem.findUnique({
                     where: { id: item.dataItemId },
-                    data: {
-                        // Scade din stocul total
-                        stock: { decrement: item.quantity },
-                        // Scade din stocul rezervat
-                        reservedStock: { decrement: item.quantity },
-                        // Adaugă la totalul vândut
-                        totalSold: { increment: item.quantity },
-                        // Actualizează disponibilitatea
-                        isInStock: {
-                            set: await this.checkIfInStock(item.dataItemId, item.quantity)
-                        }
-                    }
+                    select: { reservedStock: true, stock: true, title: true }
                 });
+                if (currentProduct && currentProduct.reservedStock < item.quantity) {
+                    console.warn(`⚠️  Warning: Reserved stock (${currentProduct.reservedStock}) is less than quantity (${item.quantity}) for ${currentProduct.title}`);
+                    // Corectăm: setăm reservedStock la 0
+                    await prisma_1.prisma.dataItem.update({
+                        where: { id: item.dataItemId },
+                        data: {
+                            stock: { decrement: item.quantity },
+                            reservedStock: 0,
+                            totalSold: { increment: item.quantity },
+                            isInStock: {
+                                set: await this.checkIfInStock(item.dataItemId, item.quantity)
+                            }
+                        }
+                    });
+                }
+                else {
+                    await prisma_1.prisma.dataItem.update({
+                        where: { id: item.dataItemId },
+                        data: {
+                            // Scade din stocul total
+                            stock: { decrement: item.quantity },
+                            // Scade din stocul rezervat
+                            reservedStock: { decrement: item.quantity },
+                            // Adaugă la totalul vândut
+                            totalSold: { increment: item.quantity },
+                            // Actualizează disponibilitatea
+                            isInStock: {
+                                set: await this.checkIfInStock(item.dataItemId, item.quantity)
+                            }
+                        }
+                    });
+                }
                 // Înregistrează mișcarea de stoc
                 await prisma_1.prisma.stockMovement.create({
                     data: {
@@ -729,17 +922,36 @@ class AdminSettingsService {
             }
             // Eliberează stocul rezervat pentru fiecare produs
             for (const item of order.orderItems) {
-                await prisma_1.prisma.dataItem.update({
+                // Verificăm stocul rezervat înainte de decrement
+                const currentProduct = await prisma_1.prisma.dataItem.findUnique({
                     where: { id: item.dataItemId },
-                    data: {
-                        // Scade din stocul rezervat
-                        reservedStock: { decrement: item.quantity },
-                        // Crește stocul disponibil
-                        availableStock: { increment: item.quantity },
-                        // Actualizează disponibilitatea
-                        isInStock: true
-                    }
+                    select: { reservedStock: true, availableStock: true, title: true }
                 });
+                if (currentProduct && currentProduct.reservedStock < item.quantity) {
+                    console.warn(`⚠️  Warning: Reserved stock (${currentProduct.reservedStock}) is less than quantity (${item.quantity}) for ${currentProduct.title}`);
+                    // Corectăm: setăm reservedStock la 0 și ajustăm availableStock
+                    await prisma_1.prisma.dataItem.update({
+                        where: { id: item.dataItemId },
+                        data: {
+                            reservedStock: 0,
+                            availableStock: { increment: currentProduct.reservedStock },
+                            isInStock: true
+                        }
+                    });
+                }
+                else {
+                    await prisma_1.prisma.dataItem.update({
+                        where: { id: item.dataItemId },
+                        data: {
+                            // Scade din stocul rezervat
+                            reservedStock: { decrement: item.quantity },
+                            // Crește stocul disponibil
+                            availableStock: { increment: item.quantity },
+                            // Actualizează disponibilitatea
+                            isInStock: true
+                        }
+                    });
+                }
                 // Înregistrează mișcarea de stoc
                 await prisma_1.prisma.stockMovement.create({
                     data: {

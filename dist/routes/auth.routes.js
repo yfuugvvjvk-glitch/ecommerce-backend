@@ -9,7 +9,7 @@ async function authRoutes(fastify) {
     fastify.post('/register', async (request, reply) => {
         try {
             const body = auth_schema_1.RegisterSchema.parse(request.body);
-            const user = await authService.register(body.email, body.password, body.name);
+            const user = await authService.register(body.email, body.password, body.name, body.phone, body.city, body.county, body.street, body.streetNumber, body.addressDetails);
             reply.code(201).send({
                 message: 'User registered successfully',
                 user: {

@@ -447,6 +447,7 @@ async function main() {
   const deliverySettings = [
     {
       name: 'Livrare Standard',
+      type: 'courier',
       deliveryTimeHours: 24,
       deliveryTimeDays: 1,
       deliveryCost: 15.0,
@@ -455,6 +456,7 @@ async function main() {
     },
     {
       name: 'Livrare Rapidă',
+      type: 'courier',
       deliveryTimeHours: 4,
       deliveryTimeDays: 0,
       deliveryCost: 25.0,
@@ -463,9 +465,18 @@ async function main() {
     },
     {
       name: 'Livrare Express',
+      type: 'courier',
       deliveryTimeHours: 2,
       deliveryTimeDays: 0,
       deliveryCost: 35.0,
+      isActive: true
+    },
+    {
+      name: 'Ridicare Personală',
+      type: 'pickup',
+      deliveryTimeHours: 2,
+      deliveryTimeDays: 0,
+      deliveryCost: 0,
       isActive: true
     }
   ];
@@ -473,12 +484,12 @@ async function main() {
   for (const setting of deliverySettings) {
     await prisma.deliverySettings.upsert({
       where: { name: setting.name },
-      update: {},
+      update: { type: setting.type },
       create: setting
     });
   }
 
-  console.log('✅ Created 3 delivery settings');
+  console.log('✅ Created 4 delivery settings (3 courier + 1 pickup)');
 
   // Create default payment methods
   const paymentMethods = [

@@ -210,123 +210,165 @@ export class CurrencyService {
   }
 
   // Actualizează cursurile de la BNR (Banca Națională a României)
-  async updateRatesFromBNR() {
-    try {
-      const response = await axios.get('https://www.bnr.ro/nbrfxrates.xml');
-      const xml = response.data;
-      
-      // Parse XML simplu (pentru producție, folosește un parser XML)
-      const rates: { [key: string]: number } = {};
-      const rateMatches = xml.matchAll(/<Rate currency="([A-Z]{3})">([0-9.]+)<\/Rate>/g);
-      
-      for (const match of rateMatches) {
-        const [, currency, rate] = match;
-        rates[currency] = parseFloat(rate);
-      }
+  async updateRatesFromBNR(retries = 3): Promise<{ success: boolean; updatedAt: Date; rates: any[] }> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await axios.get('https://www.bnr.ro/nbrfxrates.xml', {
+          timeout: 10000,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        const xml = response.data;
+        
+        // Parse XML simplu (pentru producție, folosește un parser XML)
+        const rates: { [key: string]: number } = {};
+        const rateMatches = xml.matchAll(/<Rate currency="([A-Z]{3})">([0-9.]+)<\/Rate>/g);
+        
+        for (const match of rateMatches) {
+          const [, currency, rate] = match;
+          rates[currency] = parseFloat(rate);
+        }
 
-      // RON este moneda de bază la BNR
-      const ronCurrency = await prisma.currency.findUnique({
-        where: { code: 'RON' },
-      });
+        if (Object.keys(rates).length === 0) {
+          throw new Error('Nu s-au găsit cursuri valutare în răspunsul BNR');
+        }
 
-      if (!ronCurrency) {
-        throw new Error('Moneda RON nu există în baza de date');
-      }
-
-      const updatedRates = [];
-
-      // Actualizează cursurile pentru fiecare monedă
-      for (const [currencyCode, rate] of Object.entries(rates)) {
-        const currency = await prisma.currency.findUnique({
-          where: { code: currencyCode },
+        // RON este moneda de bază la BNR
+        const ronCurrency = await prisma.currency.findUnique({
+          where: { code: 'RON' },
         });
 
-        if (currency && currency.isActive) {
-          // RON -> Currency
-          await this.upsertExchangeRate({
-            fromCurrencyCode: 'RON',
-            toCurrencyCode: currencyCode,
-            rate: rate,
-            source: 'bnr',
+        if (!ronCurrency) {
+          console.warn('⚠️ Moneda RON nu există în baza de date - se sare actualizarea BNR');
+          return { success: false, updatedAt: new Date(), rates: [] };
+        }
+
+        const updatedRates = [];
+
+        // Actualizează cursurile pentru fiecare monedă
+        for (const [currencyCode, rate] of Object.entries(rates)) {
+          const currency = await prisma.currency.findUnique({
+            where: { code: currencyCode },
           });
 
-          // Currency -> RON
-          await this.upsertExchangeRate({
-            fromCurrencyCode: currencyCode,
-            toCurrencyCode: 'RON',
-            rate: 1 / rate,
-            source: 'bnr',
-          });
+          if (currency && currency.isActive) {
+            // RON -> Currency
+            await this.upsertExchangeRate({
+              fromCurrencyCode: 'RON',
+              toCurrencyCode: currencyCode,
+              rate: rate,
+              source: 'bnr',
+            });
 
-          updatedRates.push({ currency: currencyCode, rate });
+            // Currency -> RON
+            await this.upsertExchangeRate({
+              fromCurrencyCode: currencyCode,
+              toCurrencyCode: 'RON',
+              rate: 1 / rate,
+              source: 'bnr',
+            });
+
+            updatedRates.push({ currency: currencyCode, rate });
+          }
+        }
+
+        return {
+          success: true,
+          updatedAt: new Date(),
+          rates: updatedRates,
+        };
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ Tentativa ${attempt}/${retries} eșuată pentru BNR:`, error instanceof Error ? error.message : error);
+        
+        if (attempt < retries) {
+          const delay = attempt * 2000; // 2s, 4s, 6s
+          console.log(`⏳ Reîncerc în ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
-
-      return {
-        success: true,
-        updatedAt: new Date(),
-        rates: updatedRates,
-      };
-    } catch (error) {
-      console.error('Eroare la actualizarea cursurilor BNR:', error);
-      throw new Error('Nu s-au putut actualiza cursurile de la BNR');
     }
+    
+    console.error('❌ Toate tentativele de actualizare BNR au eșuat');
+    return { success: false, updatedAt: new Date(), rates: [] };
   }
 
   // Actualizează cursurile de la un API extern (ex: exchangerate-api.com)
-  async updateRatesFromAPI(apiKey?: string) {
-    try {
-      const baseCurrency = await this.getBaseCurrency();
-      
-      if (!baseCurrency) {
-        throw new Error('Nu există monedă de bază setată');
-      }
+  async updateRatesFromAPI(apiKey?: string, retries = 3): Promise<{ success: boolean; updatedAt: Date; baseCurrency?: string; rates: any[] }> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const baseCurrency = await this.getBaseCurrency();
+        
+        if (!baseCurrency) {
+          console.warn('⚠️ Nu există monedă de bază setată - se sare actualizarea API');
+          return { success: false, updatedAt: new Date(), rates: [] };
+        }
 
-      // API gratuit pentru cursuri valutare
-      const url = apiKey
-        ? `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${baseCurrency.code}`
-        : `https://api.exchangerate-api.com/v4/latest/${baseCurrency.code}`;
+        // API gratuit pentru cursuri valutare
+        const url = apiKey
+          ? `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${baseCurrency.code}`
+          : `https://api.exchangerate-api.com/v4/latest/${baseCurrency.code}`;
 
-      const response = await axios.get(url);
-      const rates = response.data.rates;
-
-      const updatedRates = [];
-
-      for (const [currencyCode, rate] of Object.entries(rates)) {
-        const currency = await prisma.currency.findUnique({
-          where: { code: currencyCode },
+        const response = await axios.get(url, {
+          timeout: 10000,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
         });
+        const rates = response.data.rates;
 
-        if (currency && currency.isActive && currencyCode !== baseCurrency.code) {
-          await this.upsertExchangeRate({
-            fromCurrencyCode: baseCurrency.code,
-            toCurrencyCode: currencyCode,
-            rate: rate as number,
-            source: 'api',
+        if (!rates || Object.keys(rates).length === 0) {
+          throw new Error('Nu s-au găsit cursuri valutare în răspunsul API');
+        }
+
+        const updatedRates = [];
+
+        for (const [currencyCode, rate] of Object.entries(rates)) {
+          const currency = await prisma.currency.findUnique({
+            where: { code: currencyCode },
           });
 
-          // Inversul
-          await this.upsertExchangeRate({
-            fromCurrencyCode: currencyCode,
-            toCurrencyCode: baseCurrency.code,
-            rate: 1 / (rate as number),
-            source: 'api',
-          });
+          if (currency && currency.isActive && currencyCode !== baseCurrency.code) {
+            await this.upsertExchangeRate({
+              fromCurrencyCode: baseCurrency.code,
+              toCurrencyCode: currencyCode,
+              rate: rate as number,
+              source: 'api',
+            });
 
-          updatedRates.push({ currency: currencyCode, rate });
+            // Inversul
+            await this.upsertExchangeRate({
+              fromCurrencyCode: currencyCode,
+              toCurrencyCode: baseCurrency.code,
+              rate: 1 / (rate as number),
+              source: 'api',
+            });
+
+            updatedRates.push({ currency: currencyCode, rate });
+          }
+        }
+
+        return {
+          success: true,
+          updatedAt: new Date(),
+          baseCurrency: baseCurrency.code,
+          rates: updatedRates,
+        };
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ Tentativa ${attempt}/${retries} eșuată pentru API:`, error instanceof Error ? error.message : error);
+        
+        if (attempt < retries) {
+          const delay = attempt * 2000; // 2s, 4s, 6s
+          console.log(`⏳ Reîncerc în ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
-
-      return {
-        success: true,
-        updatedAt: new Date(),
-        baseCurrency: baseCurrency.code,
-        rates: updatedRates,
-      };
-    } catch (error) {
-      console.error('Eroare la actualizarea cursurilor din API:', error);
-      throw new Error('Nu s-au putut actualiza cursurile valutare');
     }
+    
+    console.error('❌ Toate tentativele de actualizare API au eșuat');
+    return { success: false, updatedAt: new Date(), rates: [] };
   }
 
   // Obține toate cursurile de schimb

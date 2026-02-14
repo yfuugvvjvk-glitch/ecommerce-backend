@@ -300,6 +300,19 @@ export class ChatService {
         data: { updatedAt: new Date() }
       });
 
+      // Reactivează toți membrii inactivi (cei care au ascuns conversația)
+      // Astfel, dacă cineva trimite un mesaj, conversația reapare pentru toți
+      await prisma.chatRoomMember.updateMany({
+        where: {
+          chatRoomId,
+          isActive: false
+        },
+        data: {
+          isActive: true,
+          leftAt: null
+        }
+      });
+
       return message;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -465,13 +478,14 @@ export class ChatService {
     }
   }
 
-  // Obține utilizatorii disponibili pentru chat
+  // Obține utilizatorii disponibili pentru chat (exclude guest și utilizatorul curent)
   async getAvailableUsers(userId: string) {
     try {
-      // Obține toți utilizatorii disponibili (mai puțin utilizatorul curent)
+      // Obține toți utilizatorii disponibili (mai puțin utilizatorul curent și guest-urile)
       const availableUsers = await prisma.user.findMany({
         where: {
-          id: { not: userId }
+          id: { not: userId },
+          role: { not: 'guest' } // Exclude utilizatorii guest
         },
         select: {
           id: true,
@@ -614,21 +628,15 @@ export class ChatService {
     }
   }
 
-  // Șterge o conversație completă
+  // Ascunde o conversație pentru utilizatorul curent (nu șterge pentru ceilalți)
   async deleteConversation(chatRoomId: string, userId: string) {
     try {
       // Verifică dacă utilizatorul este membru al camerei
       const membership = await prisma.chatRoomMember.findFirst({
         where: {
           chatRoomId,
-          userId
-        },
-        include: {
-          chatRoom: {
-            include: {
-              members: true
-            }
-          }
+          userId,
+          isActive: true
         }
       });
 
@@ -636,69 +644,22 @@ export class ChatService {
         throw new Error('You are not a member of this chat room');
       }
 
-      const chatRoom = membership.chatRoom;
-
-      // Pentru chat-uri directe, permite ștergerea
-      if (chatRoom.type === 'DIRECT') {
-        // Șterge toate mesajele
-        await prisma.chatMessage.updateMany({
-          where: { chatRoomId },
-          data: {
-            isDeleted: true,
-            deletedAt: new Date()
-          }
-        });
-
-        // Șterge membrii
-        await prisma.chatRoomMember.deleteMany({
-          where: { chatRoomId }
-        });
-
-        // Șterge camera
-        await prisma.chatRoom.delete({
-          where: { id: chatRoomId }
-        });
-
-        return { success: true, message: 'Direct chat deleted successfully' };
-      }
-
-      // Pentru grupuri, doar administratorul poate șterge
-      if (chatRoom.type === 'GROUP') {
-        if (membership.role !== 'ADMIN' && chatRoom.createdById !== userId) {
-          throw new Error('Only group administrators can delete the group');
+      // Ascunde conversația pentru utilizatorul curent
+      // Nu șterge camera sau mesajele - ceilalți utilizatori pot încă vedea conversația
+      await prisma.chatRoomMember.update({
+        where: {
+          id: membership.id
+        },
+        data: {
+          isActive: false,
+          leftAt: new Date()
         }
+      });
 
-        // Șterge toate mesajele
-        await prisma.chatMessage.updateMany({
-          where: { chatRoomId },
-          data: {
-            isDeleted: true,
-            deletedAt: new Date()
-          }
-        });
-
-        // Șterge membrii
-        await prisma.chatRoomMember.deleteMany({
-          where: { chatRoomId }
-        });
-
-        // Șterge camera
-        await prisma.chatRoom.delete({
-          where: { id: chatRoomId }
-        });
-
-        return { success: true, message: 'Group chat deleted successfully' };
-      }
-
-      // Pentru chat-uri de support, nu permite ștergerea
-      if (chatRoom.type === 'SUPPORT') {
-        throw new Error('Support chats cannot be deleted');
-      }
-
-      throw new Error('Invalid chat room type');
+      return { success: true, message: 'Conversation hidden successfully' };
     } catch (error) {
-      console.error('Error deleting conversation:', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to delete conversation');
+      console.error('Error hiding conversation:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to hide conversation');
     }
   }
 }

@@ -8,6 +8,8 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
+import { validateEnv } from './utils/env-validator';
+import { verifyDatabaseConnection, disconnectDatabase } from './utils/prisma';
 import { authRoutes } from './routes/auth.routes';
 import { dataRoutes } from './routes/data.routes';
 import { cartRoutes } from './routes/cart.routes';
@@ -22,15 +24,16 @@ import { chatRoutes } from './routes/chat.routes';
 import { publicRoutes } from './routes/public.routes';
 import { initializeRealtimeService } from './services/realtime.service';
 import { scheduleCurrencyUpdate, updateCurrenciesOnStartup } from './jobs/currency-update.job';
-// Comentez noile routes care pot cauza probleme
-// import { inventoryRoutes } from './routes/inventory.routes';
+import { inventoryRoutes } from './routes/inventory.routes';
 
+// Validează variabilele de mediu la pornire
+const env = validateEnv();
 
 const fastify = Fastify({
   logger: {
-    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    level: env.NODE_ENV === 'production' ? 'info' : 'debug',
     transport:
-      process.env.NODE_ENV !== 'production'
+      env.NODE_ENV !== 'production'
         ? {
             target: 'pino-pretty',
             options: {
@@ -41,39 +44,67 @@ const fastify = Fastify({
         : undefined,
   },
   bodyLimit: 10485760, // 10MB
+  requestIdHeader: 'x-request-id',
+  requestIdLogLabel: 'reqId',
+  disableRequestLogging: false,
 });
 
-const PORT = parseInt(process.env.PORT || '3001', 10);
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'https://ecommerce-frontend-navy.vercel.app';
+const PORT = env.PORT;
+const CORS_ORIGIN = env.CORS_ORIGIN;
+
+// Graceful shutdown handler
+async function gracefulShutdown(signal: string) {
+  console.log(`\n🛑 ${signal} primit, închid serverul...`);
+  
+  try {
+    await fastify.close();
+    await disconnectDatabase();
+    console.log('✅ Server închis cu succes');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Eroare la închiderea serverului:', error);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 async function start() {
   try {
-    // Register plugins
+    console.log('🚀 Pornire server...');
+    
+    // 1. Verifică conexiunea la baza de date
+    console.log('📊 Verificare conexiune bază de date...');
+    const dbConnected = await verifyDatabaseConnection();
+    if (!dbConnected) {
+      throw new Error('Nu se poate conecta la baza de date');
+    }
+
+    // 2. Register plugins
+    console.log('🔌 Înregistrare plugin-uri...');
+    
     await fastify.register(helmet, {
-      contentSecurityPolicy: false, // Disable for file uploads
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     });
     
     await fastify.register(cors, {
-      origin: [CORS_ORIGIN, 'http://localhost:3000'], // Support both production and development
+      origin: [CORS_ORIGIN, 'http://localhost:3000'],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     });
     
-    // Register multipart for file uploads
     await fastify.register(multipart, {
       limits: {
         fileSize: 5 * 1024 * 1024, // 5MB
       },
     });
 
-    // Register form-urlencoded support
     const formbody = await import('@fastify/formbody');
     await fastify.register(formbody.default);
 
-
-
-    // Register static file serving
     await fastify.register(fastifyStatic, {
       root: path.join(process.cwd(), 'public'),
       prefix: '/',
@@ -84,129 +115,29 @@ async function start() {
       },
     });
     
-    // Register JWT
     await fastify.register(jwt, {
-      secret: process.env.JWT_SECRET || 'your-secret-key',
+      secret: env.JWT_SECRET,
     });
 
     await fastify.register(rateLimit, {
-      max: 100,
+      max: 500,
       timeWindow: '1 minute',
     });
 
-    // Stricter rate limiting for auth endpoints
-    await fastify.register(
-      async (instance) => {
-        instance.register(rateLimit, {
-          max: 5,
-          timeWindow: '1 minute',
-        });
-        instance.register(authRoutes, { prefix: '/api/auth' });
-      }
-    );
-
-    // Health check
-    fastify.get('/health', async () => {
-      return { 
-        status: 'ok', 
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        env: process.env.NODE_ENV
-      };
-    });
-
-    // Keep-alive endpoint pentru a preveni sleep mode
-    fastify.get('/ping', async () => {
-      return { pong: true, timestamp: new Date().toISOString() };
-    });
-
-    // Register DOAR routes-urile originale care funcționau
-    await fastify.register(publicRoutes, { prefix: '/api/public' });
-    await fastify.register(dataRoutes, { prefix: '/api/data' });
-    await fastify.register(cartRoutes, { prefix: '/api/cart' });
-    await fastify.register(orderRoutes, { prefix: '/api/orders' });
-    await fastify.register(voucherRoutes, { prefix: '/api/vouchers' });
-    await fastify.register(offerRoutes, { prefix: '/api/offers' });
-    await fastify.register(categoryRoutes, { prefix: '/api/categories' });
-    await fastify.register(adminRoutes, { prefix: '/api/admin' });
-    await fastify.register(userRoutes, { prefix: '/api/user' });
-    
-    // Register review routes
-    const { reviewRoutes } = await import('./routes/review.routes');
-    await fastify.register(reviewRoutes, { prefix: '/api' });
-    
-    // Register OpenAI routes
-    await fastify.register(openAIRoutes, { prefix: '/api/ai' });
-    
-    // Register invoice routes
-    const { invoiceSimpleRoutes } = await import('./routes/invoice-simple.routes');
-    await fastify.register(invoiceSimpleRoutes, { prefix: '/api/invoices' });
-
-    // Register test card routes
-    const { testCardRoutes } = await import('./routes/test-card.routes');
-    await fastify.register(testCardRoutes, { prefix: '/api/test-cards' });
-
-    // Register payment routes
-    const { paymentRoutes } = await import('./routes/payment.routes');
-    await fastify.register(paymentRoutes, { prefix: '/api/payments' });
-
-    // Register user card routes
-    const { userCardRoutes } = await import('./routes/user-card.routes');
-    await fastify.register(userCardRoutes, { prefix: '/api/user-cards' });
-
-    // Register chat routes
-    await fastify.register(chatRoutes, { prefix: '/api/chat' });
-
-    // Register upload routes
-    const { uploadRoutes } = await import('./routes/upload.routes');
-    await fastify.register(uploadRoutes, { prefix: '/api/upload' });
-
-    // Register media routes
-    const { mediaRoutes } = await import('./routes/media.routes');
-    await fastify.register(mediaRoutes, { prefix: '/api' });
-
-    // Register advanced product routes
-    const { productAdvancedRoutes } = await import('./routes/product-advanced.routes');
-    await fastify.register(productAdvancedRoutes, { prefix: '/api' });
-
-    // Register currency routes
-    const { currencyRoutes } = await import('./routes/currency.routes');
-    await fastify.register(currencyRoutes, { prefix: '/api' });
-
-    // Add Socket.IO to fastify instance for use in routes BEFORE starting server
+    // 3. Initialize Socket.IO BEFORE routes
+    console.log('💬 Inițializare Socket.IO...');
     const io = new SocketIOServer(fastify.server, {
       cors: {
         origin: [CORS_ORIGIN, 'http://localhost:3000'],
         methods: ['GET', 'POST'],
         credentials: true
-      }
+      },
+      pingTimeout: 60000,
+      pingInterval: 25000,
     });
 
     fastify.decorate('io', io);
 
-    // Inițializează serviciul realtime
-    initializeRealtimeService(fastify);
-
-    // Global error handler
-    fastify.setErrorHandler((error: Error, request, reply) => {
-      fastify.log.error({
-        error: error.message,
-        stack: error.stack,
-        url: request.url,
-        method: request.method,
-      });
-
-      reply.code(500).send({
-        error: 'Internal Server Error',
-        message: 'An unexpected error occurred',
-      });
-    });
-
-    // Start server
-    const server = await fastify.listen({ port: PORT, host: '0.0.0.0' });
-    
-    // Socket.IO authentication middleware
     io.use(async (socket, next) => {
       try {
         const token = socket.handshake.auth.token;
@@ -218,32 +149,32 @@ async function start() {
         socket.userId = decoded.userId;
         socket.userEmail = decoded.email;
         socket.userRole = decoded.role;
+        
+        // Blochează utilizatorii guest de la Socket.IO chat
+        if (decoded.role === 'guest') {
+          return next(new Error('Chat access denied for guest users'));
+        }
+        
         next();
       } catch (error) {
         next(new Error('Authentication error'));
       }
     });
 
-    // Socket.IO connection handling
     io.on('connection', (socket) => {
       console.log(`🔌 User connected: ${socket.userEmail} (${socket.userId})`);
-
-      // Join user to their personal room for notifications
       socket.join(`user_${socket.userId}`);
 
-      // Join chat rooms
       socket.on('join_room', (roomId: string) => {
         socket.join(roomId);
         console.log(`👥 User ${socket.userEmail} joined room: ${roomId}`);
       });
 
-      // Leave chat rooms
       socket.on('leave_room', (roomId: string) => {
         socket.leave(roomId);
         console.log(`👋 User ${socket.userEmail} left room: ${roomId}`);
       });
 
-      // Handle typing indicators
       socket.on('typing_start', (data: { roomId: string }) => {
         socket.to(data.roomId).emit('user_typing', {
           userId: socket.userId,
@@ -259,7 +190,6 @@ async function start() {
         });
       });
 
-      // Handle user status
       socket.on('user_online', () => {
         socket.broadcast.emit('user_status_change', {
           userId: socket.userId,
@@ -267,7 +197,6 @@ async function start() {
         });
       });
 
-      // Handle disconnection
       socket.on('disconnect', () => {
         console.log(`🔌 User disconnected: ${socket.userEmail} (${socket.userId})`);
         socket.broadcast.emit('user_status_change', {
@@ -276,20 +205,148 @@ async function start() {
         });
       });
     });
+
+    initializeRealtimeService(fastify);
+
+    // 4. Health check endpoints
+    fastify.get('/health', async () => {
+      const dbHealthy = await verifyDatabaseConnection();
+      return { 
+        status: dbHealthy ? 'ok' : 'degraded',
+        database: dbHealthy ? 'connected' : 'disconnected',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        env: env.NODE_ENV
+      };
+    });
+
+    fastify.get('/ping', async () => {
+      return { pong: true, timestamp: new Date().toISOString() };
+    });
+
+    // 5. Register routes with error handling
+    console.log('🛣️  Înregistrare rute...');
     
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`💬 Socket.IO chat server ready`);
+    try {
+      await fastify.register(
+        async (instance) => {
+          instance.register(rateLimit, {
+            max: 10,
+            timeWindow: '1 minute',
+          });
+          instance.register(authRoutes, { prefix: '/api/auth' });
+        }
+      );
+
+      await fastify.register(publicRoutes, { prefix: '/api/public' });
+      await fastify.register(dataRoutes, { prefix: '/api/data' });
+      await fastify.register(cartRoutes, { prefix: '/api/cart' });
+      await fastify.register(orderRoutes, { prefix: '/api/orders' });
+      await fastify.register(voucherRoutes, { prefix: '/api/vouchers' });
+      await fastify.register(offerRoutes, { prefix: '/api/offers' });
+      await fastify.register(categoryRoutes, { prefix: '/api/categories' });
+      await fastify.register(adminRoutes, { prefix: '/api/admin' });
+      await fastify.register(userRoutes, { prefix: '/api/user' });
+      
+      const { reviewRoutes } = await import('./routes/review.routes');
+      await fastify.register(reviewRoutes, { prefix: '/api' });
+      
+      await fastify.register(openAIRoutes, { prefix: '/api/ai' });
+      
+      const { invoiceSimpleRoutes } = await import('./routes/invoice-simple.routes');
+      await fastify.register(invoiceSimpleRoutes, { prefix: '/api/invoices' });
+
+      const { testCardRoutes } = await import('./routes/test-card.routes');
+      await fastify.register(testCardRoutes, { prefix: '/api/test-cards' });
+
+      const { paymentRoutes } = await import('./routes/payment.routes');
+      await fastify.register(paymentRoutes, { prefix: '/api/payments' });
+
+      const { userCardRoutes } = await import('./routes/user-card.routes');
+      await fastify.register(userCardRoutes, { prefix: '/api/user-cards' });
+
+      await fastify.register(chatRoutes, { prefix: '/api/chat' });
+
+      const { uploadRoutes } = await import('./routes/upload.routes');
+      await fastify.register(uploadRoutes, { prefix: '/api/upload' });
+
+      const { mediaRoutes } = await import('./routes/media.routes');
+      await fastify.register(mediaRoutes, { prefix: '/api' });
+
+      const { productAdvancedRoutes } = await import('./routes/product-advanced.routes');
+      await fastify.register(productAdvancedRoutes, { prefix: '/api' });
+
+      const { currencyRoutes } = await import('./routes/currency.routes');
+      await fastify.register(currencyRoutes, { prefix: '/api' });
+
+      await fastify.register(inventoryRoutes, { prefix: '/api' });
+
+      const { carouselRoutes } = await import('./routes/carousel.routes');
+      await fastify.register(carouselRoutes, { prefix: '/api/carousel' });
+
+      const { financialReportsRoutes } = await import('./routes/financial-reports.routes');
+      await fastify.register(financialReportsRoutes, { prefix: '/api' });
+
+      const { announcementBannerRoutes } = await import('./routes/announcement-banner.routes');
+      await fastify.register(announcementBannerRoutes, { prefix: '/api' });
+
+      const { giftRuleRoutes } = await import('./routes/gift-rule.routes');
+      await fastify.register(giftRuleRoutes, { prefix: '/api/admin/gift-rules' });
+
+      const { giftPublicRoutes } = await import('./routes/gift-public.routes');
+      await fastify.register(giftPublicRoutes, { prefix: '/api/gift-rules' });
+
+      console.log('✅ Toate rutele au fost înregistrate cu succes');
+    } catch (error) {
+      console.error('❌ Eroare la înregistrarea rutelor:', error);
+      throw error;
+    }
+
+    // 6. Global error handler
+    fastify.setErrorHandler((error: Error, request, reply) => {
+      fastify.log.error({
+        error: error.message,
+        stack: error.stack,
+        url: request.url,
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+      });
+
+      const statusCode = (error as any).statusCode || 500;
+      
+      reply.code(statusCode).send({
+        error: error.name || 'Internal Server Error',
+        message: env.NODE_ENV === 'production' 
+          ? 'An unexpected error occurred' 
+          : error.message,
+        ...(env.NODE_ENV !== 'production' && { stack: error.stack }),
+      });
+    });
+
+    // 7. Start server
+    console.log('🌐 Pornire server HTTP...');
+    await fastify.listen({ port: PORT, host: '0.0.0.0' });
     
-    // Actualizează cursurile valutare la pornire
-    await updateCurrenciesOnStartup();
+    console.log(`\n✅ Server pornit cu succes!`);
+    console.log(`🚀 HTTP: http://localhost:${PORT}`);
+    console.log(`💬 Socket.IO: ws://localhost:${PORT}`);
+    console.log(`🌍 CORS: ${CORS_ORIGIN}`);
+    console.log(`📊 Environment: ${env.NODE_ENV}\n`);
     
-    // Programează actualizarea zilnică a cursurilor
+    // 8. Actualizează cursurile valutare la pornire (async, non-blocking)
+    updateCurrenciesOnStartup().catch(err => {
+      console.error('⚠️ Eroare la actualizarea cursurilor la pornire:', err);
+    });
+    
+    // 9. Programează actualizarea zilnică a cursurilor
     scheduleCurrencyUpdate();
     
-    // Schedule cleanup jobs - Removed for simplicity
-    // scheduleCleanupJobs();
   } catch (err) {
+    console.error('❌ Eroare fatală la pornirea serverului:', err);
     fastify.log.error(err);
+    await disconnectDatabase();
     process.exit(1);
   }
 }

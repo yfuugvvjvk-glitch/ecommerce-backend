@@ -22,9 +22,23 @@ async function initializeSiteConfig() {
     },
     {
       key: 'contact_address',
-      value: 'Str. Gari nr. 69, Galați, România, Cod poștal: 800001',
+      value: 'Str. Garii, nr. 69, Galați, Județul Galați',
       type: 'text',
       description: 'Adresa companiei',
+      isPublic: true
+    },
+    {
+      key: 'company_cui',
+      value: 'CUI: [Completează CUI-ul]',
+      type: 'text',
+      description: 'CUI-ul companiei',
+      isPublic: true
+    },
+    {
+      key: 'company_reg_com',
+      value: 'Reg. Com.: [Completează Reg. Com.]',
+      type: 'text',
+      description: 'Numărul de înregistrare la Registrul Comerțului',
       isPublic: true
     },
     {

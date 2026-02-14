@@ -5,7 +5,7 @@ const client_1 = require("@prisma/client");
 const auth_1 = require("../utils/auth");
 const prisma = new client_1.PrismaClient();
 class AuthService {
-    async register(email, password, name) {
+    async register(email, password, name, phone, city, county, street, streetNumber, addressDetails) {
         // Check if user already exists
         const existingUser = await prisma.user.findUnique({
             where: { email },
@@ -21,6 +21,12 @@ class AuthService {
                 email,
                 password: hashedPassword,
                 name,
+                phone,
+                city,
+                county,
+                street,
+                streetNumber,
+                addressDetails,
                 role: 'user',
             },
         });

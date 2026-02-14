@@ -7,6 +7,9 @@ export class DeliveryLocationService {
   // Obține toate locațiile de livrare
   async getAllLocations() {
     return await prisma.deliveryLocation.findMany({
+      include: {
+        deliveryMethod: true
+      },
       orderBy: [
         { isMainLocation: 'desc' },
         { isActive: 'desc' },
@@ -19,6 +22,9 @@ export class DeliveryLocationService {
   async getActiveLocations() {
     return await prisma.deliveryLocation.findMany({
       where: { isActive: true },
+      include: {
+        deliveryMethod: true
+      },
       orderBy: [
         { isMainLocation: 'desc' },
         { name: 'asc' }
@@ -31,6 +37,7 @@ export class DeliveryLocationService {
     return await prisma.deliveryLocation.findUnique({
       where: { id },
       include: {
+        deliveryMethod: true,
         orders: {
           take: 10,
           orderBy: { createdAt: 'desc' },
@@ -52,7 +59,10 @@ export class DeliveryLocationService {
   async createLocation(data: {
     name: string;
     address: string;
+    street?: string; // ADĂUGAT
+    streetNumber?: string; // ADĂUGAT
     city: string;
+    county?: string; // ADĂUGAT
     postalCode?: string;
     country?: string;
     coordinates?: { lat: number; lng: number };
@@ -92,7 +102,10 @@ export class DeliveryLocationService {
   async updateLocation(id: string, data: {
     name?: string;
     address?: string;
+    street?: string; // ADĂUGAT
+    streetNumber?: string; // ADĂUGAT
     city?: string;
+    county?: string; // ADĂUGAT
     postalCode?: string;
     country?: string;
     coordinates?: { lat: number; lng: number };

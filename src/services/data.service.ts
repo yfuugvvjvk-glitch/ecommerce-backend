@@ -17,6 +17,7 @@ export interface FilterOptions {
   search?: string;
   category?: string;
   status?: string;
+  showAll?: string; // Pentru admin panel
 }
 
 export class DataService {
@@ -26,12 +27,14 @@ export class DataService {
     filters: FilterOptions
   ): Promise<PaginatedResult<DataItem>> {
     const page = filters.page || 1;
-    const limit = filters.limit || 100; // Increased from 20 to 100
+    const limit = filters.limit || 100;
     const skip = (page - 1) * limit;
 
-    // For regular users and guests, show only published products
-    // For admins, show all products (or filter by userId if needed)
-    const where: any = userRole === 'admin' ? {} : { status: 'published' };
+    // Dacă showAll=true ȘI user este admin, arată toate produsele
+    // Altfel, arată doar produsele published
+    const where: any = (userRole === 'admin' && filters.showAll === 'true') 
+      ? {} 
+      : { status: 'published' };
 
     if (filters.search) {
       where.OR = [
@@ -83,8 +86,45 @@ export class DataService {
       
       // Remove reviews array and add calculated fields
       const { reviews: _, ...itemWithoutReviews } = item;
+      
+      // Admin în panoul de administrare (showAll=true) vede tot stocul
+      // Altfel, filtrează stocul bazat pe stockDisplayMode
+      let stockInfo = {};
+      
+      if (userRole === 'admin' && filters.showAll === 'true') {
+        // Admin panel - arată tot
+        stockInfo = {
+          stock: item.stock,
+          availableStock: item.availableStock,
+          reservedStock: item.reservedStock,
+          isInStock: item.isInStock,
+          stockDisplayMode: item.stockDisplayMode,
+        };
+      } else {
+        // Frontend public - respectă stockDisplayMode
+        const displayMode = item.stockDisplayMode || 'visible';
+        
+        if (displayMode === 'visible') {
+          stockInfo = {
+            stock: item.stock,
+            availableStock: item.availableStock,
+            isInStock: item.isInStock,
+          };
+        } else if (displayMode === 'status_only') {
+          stockInfo = {
+            isInStock: item.isInStock,
+            stockStatus: item.isInStock ? 'available' : 'unavailable',
+          };
+        } else if (displayMode === 'hidden') {
+          stockInfo = {
+            stockStatus: 'unknown',
+          };
+        }
+      }
+      
       return {
         ...itemWithoutReviews,
+        ...stockInfo,
         averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
         reviewCount,
         // Parse availableQuantities from JSON if it exists
@@ -105,13 +145,12 @@ export class DataService {
     };
   }
 
-  async findById(id: string, userId: string | null, userRole?: string): Promise<any> {
-    // For regular users and guests, only show published products
-    // For admins, show all products
-    const where: any = { id };
-    if (userRole !== 'admin') {
-      where.status = 'published';
-    }
+  async findById(id: string, userId: string | null, userRole?: string, showAll?: boolean): Promise<any> {
+    // Admin în panoul de administrare vede toate produsele
+    // Altfel, doar produsele publicate
+    const where: any = (userRole === 'admin' && showAll) 
+      ? { id } 
+      : { id, status: 'published' };
     
     const item = await prisma.dataItem.findFirst({
       where,
@@ -136,8 +175,45 @@ export class DataService {
     
     // Remove reviews array and add calculated fields
     const { reviews: _, ...itemWithoutReviews } = item as any;
+    
+    // Admin în panoul de administrare vede tot stocul
+    // Altfel, filtrează stocul bazat pe stockDisplayMode
+    let stockInfo = {};
+    
+    if (userRole === 'admin' && showAll) {
+      // Admin panel - arată tot
+      stockInfo = {
+        stock: item.stock,
+        availableStock: item.availableStock,
+        reservedStock: item.reservedStock,
+        isInStock: item.isInStock,
+        stockDisplayMode: item.stockDisplayMode,
+      };
+    } else {
+      // Frontend public - respectă stockDisplayMode
+      const displayMode = item.stockDisplayMode || 'visible';
+      
+      if (displayMode === 'visible') {
+        stockInfo = {
+          stock: item.stock,
+          availableStock: item.availableStock,
+          isInStock: item.isInStock,
+        };
+      } else if (displayMode === 'status_only') {
+        stockInfo = {
+          isInStock: item.isInStock,
+          stockStatus: item.isInStock ? 'available' : 'unavailable',
+        };
+      } else if (displayMode === 'hidden') {
+        stockInfo = {
+          stockStatus: 'unknown',
+        };
+      }
+    }
+    
     return {
       ...itemWithoutReviews,
+      ...stockInfo,
       averageRating: Math.round(averageRating * 10) / 10,
       reviewCount,
       // Parse availableQuantities from JSON if it exists
@@ -154,6 +230,7 @@ export class DataService {
       title: string;
       description?: string;
       content: string;
+      importantInfo?: string; // NOU
       price: number;
       oldPrice?: number | null;
       stock: number;
@@ -186,12 +263,13 @@ export class DataService {
         title: data.title,
         description: data.description,
         content: data.content,
+        importantInfo: data.importantInfo, // NOU
         price: data.price,
         oldPrice: data.oldPrice,
         stock: data.stock,
         image: data.image,
         categoryId: data.categoryId,
-        status: data.status || 'published',
+        status: data.status || 'published', // Default la creare
         userId,
         // Convert date strings to Date objects if provided - use correct field names from schema
         expiryDate: data.expirationDate ? new Date(data.expirationDate) : null,
@@ -231,12 +309,14 @@ export class DataService {
       title?: string;
       description?: string;
       content?: string;
+      importantInfo?: string; // NOU
       price?: number;
       oldPrice?: number | null;
       stock?: number;
       image?: string;
       categoryId?: string;
       status?: string;
+      stockDisplayMode?: string; // NOU
       // Carousel settings
       showInCarousel?: boolean;
       carouselOrder?: number;
@@ -259,10 +339,16 @@ export class DataService {
     },
     userId: string
   ): Promise<DataItem> {
-    // Check ownership - verify the item belongs to the user
-    const existing = await prisma.dataItem.findFirst({
-      where: { id, userId },
+    // Get user to check if admin
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true }
     });
+    
+    // Check ownership - admins can update any product, regular users only their own
+    const existing = user?.role === 'admin' 
+      ? await prisma.dataItem.findUnique({ where: { id } })
+      : await prisma.dataItem.findFirst({ where: { id, userId } });
     
     if (!existing) {
       throw new NotFoundError('DataItem');
@@ -275,12 +361,14 @@ export class DataService {
     if (data.title !== undefined) updateData.title = data.title;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.content !== undefined) updateData.content = data.content;
+    if (data.importantInfo !== undefined) updateData.importantInfo = data.importantInfo; // NOU
     if (data.price !== undefined) updateData.price = data.price;
     if (data.oldPrice !== undefined) updateData.oldPrice = data.oldPrice;
     if (data.stock !== undefined) updateData.stock = data.stock;
     if (data.image !== undefined) updateData.image = data.image;
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
     if (data.status !== undefined) updateData.status = data.status;
+    if (data.stockDisplayMode !== undefined) updateData.stockDisplayMode = data.stockDisplayMode; // NOU
     if (data.showInCarousel !== undefined) updateData.showInCarousel = data.showInCarousel;
     if (data.carouselOrder !== undefined) updateData.carouselOrder = data.carouselOrder;
     if (data.isPerishable !== undefined) updateData.isPerishable = data.isPerishable;
@@ -323,14 +411,19 @@ export class DataService {
     });
   }
 
-  async delete(id: string, userId: string): Promise<void> {
-    // Check ownership - verify the item belongs to the user
-    const existing = await prisma.dataItem.findFirst({
-      where: { id, userId },
+  async delete(id: string, userId: string, userRole?: string): Promise<void> {
+    // Check if item exists
+    const existing = await prisma.dataItem.findUnique({
+      where: { id },
     });
     
     if (!existing) {
       throw new NotFoundError('DataItem');
+    }
+
+    // Check ownership - admins can delete any item, regular users can only delete their own
+    if (userRole !== 'admin' && existing.userId !== userId) {
+      throw new Error('Unauthorized: You can only delete your own items');
     }
 
     await prisma.dataItem.delete({

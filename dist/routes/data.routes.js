@@ -11,9 +11,20 @@ async function dataRoutes(fastify) {
     fastify.get('/', async (request, reply) => {
         try {
             const query = data_schema_1.QueryParamsSchema.parse(request.query);
-            // For public access, we don't require userId
-            const userId = request.user?.userId || null;
-            const userRole = request.user?.role || 'user';
+            // Try to get user info from token if available
+            let userId = null;
+            let userRole = 'user';
+            try {
+                // Attempt to verify JWT token if present
+                await request.jwtVerify();
+                userId = request.user?.userId || null;
+                userRole = request.user?.role || 'user';
+            }
+            catch (error) {
+                // No valid token, continue as guest
+                userId = null;
+                userRole = 'user';
+            }
             const result = await dataService.findAll(userId, userRole, query);
             reply.send(result);
         }
@@ -30,8 +41,20 @@ async function dataRoutes(fastify) {
     fastify.get('/:id', async (request, reply) => {
         try {
             const { id } = request.params;
-            const userId = request.user?.userId || null;
-            const userRole = request.user?.role || 'user';
+            // Try to get user info from token if available
+            let userId = null;
+            let userRole = 'user';
+            try {
+                // Attempt to verify JWT token if present
+                await request.jwtVerify();
+                userId = request.user?.userId || null;
+                userRole = request.user?.role || 'user';
+            }
+            catch (error) {
+                // No valid token, continue as guest
+                userId = null;
+                userRole = 'user';
+            }
             const item = await dataService.findById(id, userId, userRole);
             if (!item) {
                 reply.code(404).send({ error: 'Data item not found' });
@@ -51,6 +74,8 @@ async function dataRoutes(fastify) {
     // POST /api/data - Create new data item (REQUIRES AUTH)
     fastify.post('/', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
         try {
+            console.log('📦 POST /api/data - Creating product...');
+            console.log('Request body:', JSON.stringify(request.body, null, 2));
             const body = data_schema_1.CreateDataSchema.parse(request.body);
             const userId = request.user.userId;
             // Convert null to undefined for TypeScript compatibility
@@ -66,7 +91,10 @@ async function dataRoutes(fastify) {
             reply.code(201).send({ data: item });
         }
         catch (error) {
+            console.error('❌ Error creating product:', error);
             if (error instanceof Error) {
+                console.error('Error message:', error.message);
+                console.error('Error name:', error.name);
                 reply.code(400).send({ error: error.message });
             }
             else {
@@ -115,13 +143,17 @@ async function dataRoutes(fastify) {
         try {
             const { id } = request.params;
             const userId = request.user.userId;
-            await dataService.delete(id, userId);
+            const userRole = request.user.role;
+            await dataService.delete(id, userId, userRole);
             reply.send({ message: 'Data item deleted successfully' });
         }
         catch (error) {
             if (error instanceof Error) {
                 if (error.name === 'NotFoundError') {
                     reply.code(404).send({ error: error.message });
+                }
+                else if (error.message.includes('Unauthorized')) {
+                    reply.code(403).send({ error: error.message });
                 }
                 else {
                     reply.code(400).send({ error: error.message });
