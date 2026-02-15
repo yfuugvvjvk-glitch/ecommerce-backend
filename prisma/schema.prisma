@@ -105,10 +105,22 @@ model DataItem {
   content        String   @db.Text
   importantInfo  String?  @db.Text // Informații importante cu formatare HTML
   
-  // English translations
+  // Translations
   titleEn        String?
+  titleFr        String?
+  titleDe        String?
+  titleEs        String?
+  titleIt        String?
   descriptionEn  String?  @db.Text
+  descriptionFr  String?  @db.Text
+  descriptionDe  String?  @db.Text
+  descriptionEs  String?  @db.Text
+  descriptionIt  String?  @db.Text
   contentEn      String?  @db.Text
+  contentFr      String?  @db.Text
+  contentDe      String?  @db.Text
+  contentEs      String?  @db.Text
+  contentIt      String?  @db.Text
   
   price          Float
   oldPrice       Float?
@@ -609,6 +621,9 @@ model DeliveryLocation {
   id                    String  @id @default(cuid())
   name                  String
   nameEn                String? // Traducere engleză
+  nameFr                String? // Traducere franceză
+  nameDe                String? // Traducere germană
+  nameEs                String? // Traducere spaniolă
   nameIt                String? // Traducere italiană
   address               String  @db.Text // Adresa completă (legacy/computed)
   street                String? // Strada
@@ -630,6 +645,9 @@ model DeliveryLocation {
   workingHours          String? // JSON cu programul de lucru
   specialInstructions   String? @db.Text
   specialInstructionsEn String? @db.Text // Traducere engleză
+  specialInstructionsFr String? @db.Text // Traducere franceză
+  specialInstructionsDe String? @db.Text // Traducere germană
+  specialInstructionsEs String? @db.Text // Traducere spaniolă
   specialInstructionsIt String? @db.Text // Traducere italiană
   contactPerson         String?
   isMainLocation        Boolean @default(false)
