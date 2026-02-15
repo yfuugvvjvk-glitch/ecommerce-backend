@@ -3,9 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.chatRoutes = chatRoutes;
 const chat_service_1 = require("../services/chat.service");
 const auth_middleware_1 = require("../middleware/auth.middleware");
+const chat_auth_middleware_1 = require("../middleware/chat-auth.middleware");
 async function chatRoutes(fastify) {
     // Obține toate camerele de chat ale utilizatorului
-    fastify.get('/rooms', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.get('/rooms', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const rooms = await chat_service_1.chatService.getUserChatRooms(request.user.userId);
             reply.send(rooms);
@@ -16,7 +17,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Creează un chat direct cu alt utilizator
-    fastify.post('/direct', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.post('/direct', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { targetUserId } = request.body;
             if (!targetUserId) {
@@ -31,7 +32,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Creează un grup de chat
-    fastify.post('/group', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.post('/group', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { name, description, memberIds } = request.body;
             if (!name) {
@@ -46,7 +47,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Creează un chat de support
-    fastify.post('/support', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.post('/support', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const supportRoom = await chat_service_1.chatService.createSupportChat(request.user.userId);
             reply.code(201).send(supportRoom);
@@ -57,7 +58,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Obține mesajele unei camere
-    fastify.get('/rooms/:roomId/messages', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.get('/rooms/:roomId/messages', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId } = request.params;
             const { page = 1, limit = 50 } = request.query;
@@ -70,7 +71,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Trimite un mesaj
-    fastify.post('/rooms/:roomId/messages', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.post('/rooms/:roomId/messages', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId } = request.params;
             const { content, type = 'TEXT', fileUrl, fileName } = request.body;
@@ -90,7 +91,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Marchează mesajele ca citite
-    fastify.put('/rooms/:roomId/read', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.put('/rooms/:roomId/read', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId } = request.params;
             const { messageIds } = request.body;
@@ -111,7 +112,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Adaugă membri într-un grup
-    fastify.post('/rooms/:roomId/members', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.post('/rooms/:roomId/members', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId } = request.params;
             const { memberIds } = request.body;
@@ -135,7 +136,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Șterge o conversație (doar pentru direct chats și grupuri unde utilizatorul este admin)
-    fastify.delete('/rooms/:roomId', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.delete('/rooms/:roomId', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId } = request.params;
             const result = await chat_service_1.chatService.deleteConversation(roomId, request.user.userId);
@@ -154,7 +155,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Părăsește un grup
-    fastify.post('/rooms/:roomId/leave', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.post('/rooms/:roomId/leave', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId } = request.params;
             const result = await chat_service_1.chatService.leaveGroup(roomId, request.user.userId);
@@ -173,7 +174,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Obține utilizatorii disponibili pentru chat
-    fastify.get('/available-users', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.get('/available-users', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const users = await chat_service_1.chatService.getAvailableUsers(request.user.userId);
             reply.send(users);
@@ -184,7 +185,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Editează un mesaj
-    fastify.put('/rooms/:roomId/messages/:messageId', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.put('/rooms/:roomId/messages/:messageId', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId, messageId } = request.params;
             const { content } = request.body;
@@ -197,7 +198,8 @@ async function chatRoutes(fastify) {
                 fastify.io.to(roomId).emit('message_edited', {
                     messageId,
                     content: content.trim(),
-                    editedBy: request.user.userId
+                    editedBy: request.user.userId,
+                    roomId
                 });
             }
             reply.send(result);
@@ -208,7 +210,7 @@ async function chatRoutes(fastify) {
         }
     });
     // Șterge un mesaj
-    fastify.delete('/rooms/:roomId/messages/:messageId', { preHandler: auth_middleware_1.authMiddleware }, async (request, reply) => {
+    fastify.delete('/rooms/:roomId/messages/:messageId', { preHandler: [auth_middleware_1.authMiddleware, chat_auth_middleware_1.chatAuthMiddleware] }, async (request, reply) => {
         try {
             const { roomId, messageId } = request.params;
             const result = await chat_service_1.chatService.deleteMessage(messageId, request.user.userId);
@@ -216,7 +218,8 @@ async function chatRoutes(fastify) {
             if (fastify.io) {
                 fastify.io.to(roomId).emit('message_deleted', {
                     messageId,
-                    deletedBy: request.user.userId
+                    deletedBy: request.user.userId,
+                    roomId
                 });
             }
             reply.send(result);

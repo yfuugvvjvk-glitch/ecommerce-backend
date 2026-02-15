@@ -104,6 +104,12 @@ model DataItem {
   description    String?
   content        String   @db.Text
   importantInfo  String?  @db.Text // Informații importante cu formatare HTML
+  
+  // English translations
+  titleEn        String?
+  descriptionEn  String?  @db.Text
+  contentEn      String?  @db.Text
+  
   price          Float
   oldPrice       Float?
   stock          Float    @default(0)
@@ -602,6 +608,8 @@ model PageSection {
 model DeliveryLocation {
   id                    String  @id @default(cuid())
   name                  String
+  nameEn                String? // Traducere engleză
+  nameIt                String? // Traducere italiană
   address               String  @db.Text // Adresa completă (legacy/computed)
   street                String? // Strada
   streetNumber          String? // Numărul
@@ -621,6 +629,8 @@ model DeliveryLocation {
   freeDeliveryThreshold Float? // Pragul pentru livrare gratuită
   workingHours          String? // JSON cu programul de lucru
   specialInstructions   String? @db.Text
+  specialInstructionsEn String? @db.Text // Traducere engleză
+  specialInstructionsIt String? @db.Text // Traducere italiană
   contactPerson         String?
   isMainLocation        Boolean @default(false)
 
@@ -1058,4 +1068,23 @@ model UIElement {
   @@index([isVisible])
   @@index([order])
   @@index([createdById])
+}
+
+// Model pentru traduceri live
+model Translation {
+  id          String   @id @default(cuid())
+  entityType  String   // "product", "category", "chatMessage", "page"
+  entityId    String   // ID of the entity being translated
+  field       String   // Field name (e.g., "title", "description", "content")
+  locale      String   // Language code (ro, en)
+  value       String   @db.Text
+  isAutomatic Boolean  @default(true)
+  status      String   @default("automatic") // "automatic", "manual", "reviewed"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([entityType, entityId, field, locale])
+  @@index([entityType, entityId])
+  @@index([locale])
+  @@index([status])
 }

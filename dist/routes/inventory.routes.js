@@ -26,6 +26,7 @@ async function inventoryRoutes(fastify) {
                     trackInventory: true,
                     isInStock: true,
                     unitName: true,
+                    priceType: true,
                     stockDisplayMode: true
                 }
             });
@@ -37,6 +38,8 @@ async function inventoryRoutes(fastify) {
             }
             const availableStock = product.stock - (product.reservedStock || 0);
             const isAvailable = !product.trackInventory || availableStock >= requestedQty;
+            // Pentru produse cu priceType = 'fixed', afișează "bucati" în loc de unitatea de măsură
+            const displayUnit = product.priceType === 'fixed' ? 'bucati' : (product.unitName || 'buc');
             reply.send({
                 productId: product.id,
                 productTitle: product.title,
@@ -45,7 +48,7 @@ async function inventoryRoutes(fastify) {
                 reservedStock: product.reservedStock || 0,
                 availableStock,
                 requestedQuantity: requestedQty,
-                unitName: product.unitName || 'buc',
+                unitName: displayUnit,
                 trackInventory: product.trackInventory,
                 stockDisplayMode: product.stockDisplayMode || 'visible'
             });
@@ -71,7 +74,8 @@ async function inventoryRoutes(fastify) {
                     stock: true,
                     reservedStock: true,
                     trackInventory: true,
-                    unitName: true
+                    unitName: true,
+                    priceType: true
                 }
             });
             const results = items.map(item => {
@@ -85,6 +89,8 @@ async function inventoryRoutes(fastify) {
                 }
                 const availableStock = product.stock - (product.reservedStock || 0);
                 const isAvailable = !product.trackInventory || availableStock >= item.quantity;
+                // Pentru produse cu priceType = 'fixed', afișează "bucati" în loc de unitatea de măsură
+                const displayUnit = product.priceType === 'fixed' ? 'bucati' : (product.unitName || 'buc');
                 return {
                     productId: product.id,
                     productTitle: product.title,
@@ -93,7 +99,7 @@ async function inventoryRoutes(fastify) {
                     reservedStock: product.reservedStock || 0,
                     availableStock,
                     requestedQuantity: item.quantity,
-                    unitName: product.unitName || 'buc'
+                    unitName: displayUnit
                 };
             });
             const allAvailable = results.every(r => r.available);

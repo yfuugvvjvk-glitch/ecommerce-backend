@@ -57,6 +57,8 @@ export async function publicRoutes(fastify: FastifyInstance) {
       const publicLocations = locations.map(location => ({
         id: location.id,
         name: location.name,
+        nameEn: location.nameEn,
+        nameIt: location.nameIt,
         address: location.address,
         city: location.city,
         phone: location.phone,
@@ -66,6 +68,8 @@ export async function publicRoutes(fastify: FastifyInstance) {
         freeDeliveryThreshold: location.freeDeliveryThreshold,
         workingHours: location.workingHours ? JSON.parse(location.workingHours) : null,
         specialInstructions: location.specialInstructions,
+        specialInstructionsEn: location.specialInstructionsEn,
+        specialInstructionsIt: location.specialInstructionsIt,
         isMainLocation: location.isMainLocation,
         coordinates: location.coordinates // ADĂUGAT pentru calculul distanței
       }));
@@ -85,6 +89,8 @@ export async function publicRoutes(fastify: FastifyInstance) {
       const publicLocations = locations.map(location => ({
         id: location.id,
         name: location.name,
+        nameEn: location.nameEn,
+        nameIt: location.nameIt,
         address: location.address,
         city: location.city,
         phone: location.phone,
@@ -93,6 +99,8 @@ export async function publicRoutes(fastify: FastifyInstance) {
         freeDeliveryThreshold: location.freeDeliveryThreshold,
         workingHours: location.workingHours ? JSON.parse(location.workingHours) : null,
         specialInstructions: location.specialInstructions,
+        specialInstructionsEn: location.specialInstructionsEn,
+        specialInstructionsIt: location.specialInstructionsIt,
         isMainLocation: location.isMainLocation
       }));
       

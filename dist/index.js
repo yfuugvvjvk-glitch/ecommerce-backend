@@ -122,6 +122,13 @@ async function start() {
             methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
             allowedHeaders: ['Content-Type', 'Authorization'],
         });
+        // Set UTF-8 charset for all JSON responses
+        fastify.addHook('onSend', async (request, reply, payload) => {
+            if (reply.getHeader('content-type')?.toString().includes('application/json')) {
+                reply.header('content-type', 'application/json; charset=utf-8');
+            }
+            return payload;
+        });
         await fastify.register(multipart_1.default, {
             limits: {
                 fileSize: 5 * 1024 * 1024, // 5MB
@@ -167,6 +174,10 @@ async function start() {
                 socket.userId = decoded.userId;
                 socket.userEmail = decoded.email;
                 socket.userRole = decoded.role;
+                // Blochează utilizatorii guest de la Socket.IO chat
+                if (decoded.role === 'guest') {
+                    return next(new Error('Chat access denied for guest users'));
+                }
                 next();
             }
             catch (error) {
@@ -277,6 +288,8 @@ async function start() {
             await fastify.register(giftRuleRoutes, { prefix: '/api/admin/gift-rules' });
             const { giftPublicRoutes } = await Promise.resolve().then(() => __importStar(require('./routes/gift-public.routes')));
             await fastify.register(giftPublicRoutes, { prefix: '/api/gift-rules' });
+            const { translationRoutes } = await Promise.resolve().then(() => __importStar(require('./routes/translation.routes')));
+            await fastify.register(translationRoutes, { prefix: '/api' });
             console.log('✅ Toate rutele au fost înregistrate cu succes');
         }
         catch (error) {

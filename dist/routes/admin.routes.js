@@ -10,6 +10,7 @@ const delivery_location_service_1 = require("../services/delivery-location.servi
 const site_config_service_1 = require("../services/site-config.service");
 const financial_report_service_1 = require("../services/financial-report.service");
 const order_service_1 = require("../services/order.service");
+const ui_element_service_1 = require("../services/ui-element.service");
 const orderService = new order_service_1.OrderService();
 // Mock storage pentru programe de livrare (în producție ar fi în baza de date)
 let deliverySchedules = [
@@ -1472,6 +1473,152 @@ async function adminRoutes(fastify) {
         catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // === GESTIONARE ELEMENTE UI ===
+    // Obține toate elementele UI
+    fastify.get('/ui-elements', async (request, reply) => {
+        try {
+            const elements = await ui_element_service_1.uiElementService.getAllElements();
+            reply.send(elements);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // Obține elementele UI vizibile
+    fastify.get('/ui-elements/visible', async (request, reply) => {
+        try {
+            const elements = await ui_element_service_1.uiElementService.getVisibleElements();
+            reply.send(elements);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // Obține elementele UI pentru o pagină specifică
+    fastify.get('/ui-elements/page/:page', async (request, reply) => {
+        try {
+            const { page } = request.params;
+            const elements = await ui_element_service_1.uiElementService.getElementsByPage(page);
+            reply.send(elements);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // Obține un element UI specific
+    fastify.get('/ui-elements/:id', async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const element = await ui_element_service_1.uiElementService.getElementById(id);
+            if (!element) {
+                return reply.code(404).send({ error: 'UI Element not found' });
+            }
+            reply.send(element);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // Creează element UI nou
+    fastify.post('/ui-elements', async (request, reply) => {
+        try {
+            const elementData = request.body;
+            const userId = getUserId(request);
+            const element = await ui_element_service_1.uiElementService.createElement({
+                ...elementData,
+                createdById: userId
+            });
+            reply.code(201).send(element);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(400).send({ error: errorMessage });
+        }
+    });
+    // Actualizează element UI
+    fastify.put('/ui-elements/:id', async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const updateData = request.body;
+            const element = await ui_element_service_1.uiElementService.updateElement(id, updateData);
+            reply.send(element);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(400).send({ error: errorMessage });
+        }
+    });
+    // Șterge element UI
+    fastify.delete('/ui-elements/:id', async (request, reply) => {
+        try {
+            const { id } = request.params;
+            await ui_element_service_1.uiElementService.deleteElement(id);
+            reply.send({ success: true, message: 'UI Element deleted successfully' });
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(400).send({ error: errorMessage });
+        }
+    });
+    // Toggle vizibilitate element UI
+    fastify.patch('/ui-elements/:id/toggle-visibility', async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const element = await ui_element_service_1.uiElementService.toggleVisibility(id);
+            reply.send(element);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(400).send({ error: errorMessage });
+        }
+    });
+    // Reordonează elemente UI
+    fastify.patch('/ui-elements/:id/reorder', async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const { direction } = request.body;
+            if (!direction || !['up', 'down'].includes(direction)) {
+                return reply.code(400).send({ error: 'Invalid direction. Must be "up" or "down"' });
+            }
+            // Obține elementul curent
+            const currentElement = await ui_element_service_1.uiElementService.getElementById(id);
+            if (!currentElement) {
+                return reply.code(404).send({ error: 'UI Element not found' });
+            }
+            // Obține toate elementele sortate după order
+            const allElements = await ui_element_service_1.uiElementService.getAllElements();
+            const sortedElements = allElements.sort((a, b) => a.order - b.order);
+            // Găsește indexul elementului curent
+            const currentIndex = sortedElements.findIndex(el => el.id === id);
+            if (currentIndex === -1) {
+                return reply.code(404).send({ error: 'Element not found in list' });
+            }
+            // Verifică dacă mutarea este posibilă
+            if (direction === 'up' && currentIndex === 0) {
+                return reply.send({ success: true, message: 'Element is already at the top' });
+            }
+            if (direction === 'down' && currentIndex === sortedElements.length - 1) {
+                return reply.send({ success: true, message: 'Element is already at the bottom' });
+            }
+            // Calculează noul index
+            const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            // Schimbă ordinea între elementul curent și cel cu care se schimbă
+            const targetElement = sortedElements[newIndex];
+            await Promise.all([
+                ui_element_service_1.uiElementService.updateElement(currentElement.id, { order: targetElement.order }),
+                ui_element_service_1.uiElementService.updateElement(targetElement.id, { order: currentElement.order })
+            ]);
+            reply.send({ success: true, message: 'Element reordered successfully' });
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(400).send({ error: errorMessage });
         }
     });
 }

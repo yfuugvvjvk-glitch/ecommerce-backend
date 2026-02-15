@@ -4,6 +4,7 @@ exports.publicRoutes = publicRoutes;
 const page_service_1 = require("../services/page.service");
 const delivery_location_service_1 = require("../services/delivery-location.service");
 const site_config_service_1 = require("../services/site-config.service");
+const ui_element_service_1 = require("../services/ui-element.service");
 async function publicRoutes(fastify) {
     // === PAGINI PUBLICE ===
     // Obține toate paginile publicate
@@ -50,6 +51,8 @@ async function publicRoutes(fastify) {
             const publicLocations = locations.map(location => ({
                 id: location.id,
                 name: location.name,
+                nameEn: location.nameEn,
+                nameIt: location.nameIt,
                 address: location.address,
                 city: location.city,
                 phone: location.phone,
@@ -59,6 +62,8 @@ async function publicRoutes(fastify) {
                 freeDeliveryThreshold: location.freeDeliveryThreshold,
                 workingHours: location.workingHours ? JSON.parse(location.workingHours) : null,
                 specialInstructions: location.specialInstructions,
+                specialInstructionsEn: location.specialInstructionsEn,
+                specialInstructionsIt: location.specialInstructionsIt,
                 isMainLocation: location.isMainLocation,
                 coordinates: location.coordinates // ADĂUGAT pentru calculul distanței
             }));
@@ -76,6 +81,8 @@ async function publicRoutes(fastify) {
             const publicLocations = locations.map(location => ({
                 id: location.id,
                 name: location.name,
+                nameEn: location.nameEn,
+                nameIt: location.nameIt,
                 address: location.address,
                 city: location.city,
                 phone: location.phone,
@@ -84,6 +91,8 @@ async function publicRoutes(fastify) {
                 freeDeliveryThreshold: location.freeDeliveryThreshold,
                 workingHours: location.workingHours ? JSON.parse(location.workingHours) : null,
                 specialInstructions: location.specialInstructions,
+                specialInstructionsEn: location.specialInstructionsEn,
+                specialInstructionsIt: location.specialInstructionsIt,
                 isMainLocation: location.isMainLocation
             }));
             reply.send(publicLocations);
@@ -362,6 +371,28 @@ async function publicRoutes(fastify) {
         catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.error('Error loading block rules:', error);
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // === ELEMENTE UI PUBLICE ===
+    // Obține elementele UI vizibile pentru o pagină specifică
+    fastify.get('/ui-elements', async (request, reply) => {
+        try {
+            const { page } = request.query;
+            if (page) {
+                // Obține elementele pentru o pagină specifică
+                const elements = await ui_element_service_1.uiElementService.getElementsByPage(page);
+                reply.send(elements);
+            }
+            else {
+                // Obține toate elementele vizibile
+                const elements = await ui_element_service_1.uiElementService.getVisibleElements();
+                reply.send(elements);
+            }
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Error loading UI elements:', error);
             reply.code(500).send({ error: errorMessage });
         }
     });

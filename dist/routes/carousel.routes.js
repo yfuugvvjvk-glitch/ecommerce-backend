@@ -10,7 +10,7 @@ const adminMiddleware = async (request, reply) => {
     }
 };
 async function carouselRoutes(fastify) {
-    // === RUTE PUBLICE ===
+    // === RUTE PUBLICE (fără middleware) ===
     // Obține item-urile active din carousel (pentru afișare publică)
     fastify.get('/active', async (request, reply) => {
         try {
@@ -22,12 +22,22 @@ async function carouselRoutes(fastify) {
             reply.code(500).send({ error: errorMessage });
         }
     });
-    // === RUTE ADMIN ===
-    // Aplicăm middleware-ul de autentificare și admin pentru rutele de mai jos
-    fastify.addHook('preHandler', auth_middleware_1.authMiddleware);
-    fastify.addHook('preHandler', adminMiddleware);
+    // Obține toate item-urile din carousel (public - pentru dashboard)
+    fastify.get('/', async (request, reply) => {
+        try {
+            // Pentru utilizatori neautentificați sau non-admin, returnează doar item-urile active
+            const items = await carousel_service_1.carouselService.getActiveCarouselItems();
+            reply.send(items);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            reply.code(500).send({ error: errorMessage });
+        }
+    });
+    // === RUTE ADMIN (cu middleware aplicat individual) ===
+    // === RUTE ADMIN (cu middleware aplicat individual) ===
     // Obține toate pozițiile disponibile
-    fastify.get('/positions', async (request, reply) => {
+    fastify.get('/positions', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const positions = await carousel_service_1.carouselService.getAvailablePositions();
             reply.send(positions);
@@ -37,8 +47,8 @@ async function carouselRoutes(fastify) {
             reply.code(500).send({ error: errorMessage });
         }
     });
-    // Obține toate item-urile din carousel
-    fastify.get('/', async (request, reply) => {
+    // Obține toate item-urile din carousel (admin - cu inactive)
+    fastify.get('/all', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const { includeInactive } = request.query;
             const items = await carousel_service_1.carouselService.getAllCarouselItems(includeInactive === 'true');
@@ -50,7 +60,7 @@ async function carouselRoutes(fastify) {
         }
     });
     // Obține un item specific
-    fastify.get('/:id', async (request, reply) => {
+    fastify.get('/:id', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const item = await carousel_service_1.carouselService.getCarouselItemById(id);
@@ -62,7 +72,7 @@ async function carouselRoutes(fastify) {
         }
     });
     // Creează un nou item în carousel
-    fastify.post('/', async (request, reply) => {
+    fastify.post('/', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const data = request.body;
             const userId = request.user.userId;
@@ -75,7 +85,7 @@ async function carouselRoutes(fastify) {
         }
     });
     // Actualizează un item din carousel
-    fastify.put('/:id', async (request, reply) => {
+    fastify.put('/:id', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const data = request.body;
@@ -88,7 +98,7 @@ async function carouselRoutes(fastify) {
         }
     });
     // Șterge un item din carousel
-    fastify.delete('/:id', async (request, reply) => {
+    fastify.delete('/:id', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const result = await carousel_service_1.carouselService.deleteCarouselItem(id);
@@ -100,7 +110,7 @@ async function carouselRoutes(fastify) {
         }
     });
     // Schimbă pozițiile a două item-uri
-    fastify.post('/swap', async (request, reply) => {
+    fastify.post('/swap', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const { itemId1, itemId2 } = request.body;
             if (!itemId1 || !itemId2) {
@@ -115,7 +125,7 @@ async function carouselRoutes(fastify) {
         }
     });
     // Mută un item la o nouă poziție
-    fastify.post('/:id/move', async (request, reply) => {
+    fastify.post('/:id/move', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const { position } = request.body;
@@ -131,7 +141,7 @@ async function carouselRoutes(fastify) {
         }
     });
     // Obține statistici despre carousel
-    fastify.get('/stats/overview', async (request, reply) => {
+    fastify.get('/stats/overview', { preHandler: [auth_middleware_1.authMiddleware, adminMiddleware] }, async (request, reply) => {
         try {
             const stats = await carousel_service_1.carouselService.getCarouselStats();
             reply.send(stats);

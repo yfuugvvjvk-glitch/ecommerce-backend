@@ -305,6 +305,9 @@ async function start() {
       const { giftPublicRoutes } = await import('./routes/gift-public.routes');
       await fastify.register(giftPublicRoutes, { prefix: '/api/gift-rules' });
 
+      const { translationRoutes } = await import('./routes/translation.routes');
+      await fastify.register(translationRoutes, { prefix: '/api' });
+
       console.log('✅ Toate rutele au fost înregistrate cu succes');
     } catch (error) {
       console.error('❌ Eroare la înregistrarea rutelor:', error);

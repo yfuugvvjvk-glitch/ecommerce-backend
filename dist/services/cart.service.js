@@ -67,7 +67,7 @@ class CartService {
         const result = {
             items: itemsWithParsedQuantities,
             total,
-            itemCount: itemsWithParsedQuantities.length, // Numărul de produse distincte, nu suma cantităților
+            itemCount: itemsWithParsedQuantities.length, // Numărul de produse distincte
         };
         return result;
     }
@@ -92,12 +92,13 @@ class CartService {
         if (product.priceType === 'per_unit' && availableStock <= 0) {
             throw new Error('Product out of stock');
         }
-        // Check if item already in cart
+        // Check if item already in cart (as non-gift)
         const existingItem = await prisma.cartItem.findUnique({
             where: {
-                userId_dataItemId: {
+                userId_dataItemId_isGift: {
                     userId,
                     dataItemId,
+                    isGift: false,
                 },
             },
         });
