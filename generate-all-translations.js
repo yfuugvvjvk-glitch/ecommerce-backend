@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 // Mock translations dictionary
 const mockTranslations = {
-  // Products
+  // Products - Romanian to other languages
   'Lapte de vacă': {
     en: 'Cow Milk',
     fr: 'Lait de vache',
@@ -18,12 +18,40 @@ const mockTranslations = {
     es: 'Leche de cabra',
     it: 'Latte di capra'
   },
+  'Urdă de capră': {
+    en: 'Goat Ricotta',
+    fr: 'Ricotta de chèvre',
+    de: 'Ziegenricotta',
+    es: 'Ricotta de cabra',
+    it: 'Ricotta di capra'
+  },
+  'Urdă de vacă': {
+    en: 'Cow Ricotta',
+    fr: 'Ricotta de vache',
+    de: 'Kuhricotta',
+    es: 'Ricotta de vaca',
+    it: 'Ricotta di mucca'
+  },
   'Brânză': {
     en: 'Cheese',
     fr: 'Fromage',
     de: 'Käse',
     es: 'Queso',
     it: 'Formaggio'
+  },
+  'Caș': {
+    en: 'Fresh Cheese',
+    fr: 'Fromage frais',
+    de: 'Frischkäse',
+    es: 'Queso fresco',
+    it: 'Formaggio fresco'
+  },
+  'Telemea': {
+    en: 'Telemea Cheese',
+    fr: 'Fromage Telemea',
+    de: 'Telemea-Käse',
+    es: 'Queso Telemea',
+    it: 'Formaggio Telemea'
   },
   'Unt': {
     en: 'Butter',
@@ -38,6 +66,76 @@ const mockTranslations = {
     de: 'Eier',
     es: 'Huevos',
     it: 'Uova'
+  },
+  'Carne': {
+    en: 'Meat',
+    fr: 'Viande',
+    de: 'Fleisch',
+    es: 'Carne',
+    it: 'Carne'
+  },
+  'Pastramă': {
+    en: 'Pastrami',
+    fr: 'Pastrami',
+    de: 'Pastrami',
+    es: 'Pastrami',
+    it: 'Pastrami'
+  },
+  'Găină': {
+    en: 'Chicken',
+    fr: 'Poulet',
+    de: 'Huhn',
+    es: 'Pollo',
+    it: 'Pollo'
+  },
+  'Găinile': {
+    en: 'Chickens',
+    fr: 'Poulets',
+    de: 'Hühner',
+    es: 'Pollos',
+    it: 'Polli'
+  },
+  'Prepeliță': {
+    en: 'Quail',
+    fr: 'Caille',
+    de: 'Wachtel',
+    es: 'Codorniz',
+    it: 'Quaglia'
+  },
+  'Prepelițele': {
+    en: 'Quails',
+    fr: 'Cailles',
+    de: 'Wachteln',
+    es: 'Codornices',
+    it: 'Quaglie'
+  },
+  'Ied': {
+    en: 'Kid (young goat)',
+    fr: 'Chevreau',
+    de: 'Zicklein',
+    es: 'Cabrito',
+    it: 'Capretto'
+  },
+  'Iezii': {
+    en: 'Kids (young goats)',
+    fr: 'Chevreaux',
+    de: 'Zicklein',
+    es: 'Cabritos',
+    it: 'Capretti'
+  },
+  'Capre': {
+    en: 'Goats',
+    fr: 'Chèvres',
+    de: 'Ziegen',
+    es: 'Cabras',
+    it: 'Capre'
+  },
+  'gestante': {
+    en: 'pregnant',
+    fr: 'gestantes',
+    de: 'trächtig',
+    es: 'gestantes',
+    it: 'gravide'
   },
   
   // Delivery locations
@@ -62,7 +160,21 @@ const mockTranslations = {
     es: 'En Galați',
     it: 'A Galați'
   },
+  'In Galați': {
+    en: 'In Galați',
+    fr: 'À Galați',
+    de: 'In Galați',
+    es: 'En Galați',
+    it: 'A Galați'
+  },
   'Localități limitrofe': {
+    en: 'Nearby Localities',
+    fr: 'Localités voisines',
+    de: 'Benachbarte Ortschaften',
+    es: 'Localidades cercanas',
+    it: 'Località limitrofe'
+  },
+  'Localițăți limitrofe': {
     en: 'Nearby Localities',
     fr: 'Localités voisines',
     de: 'Benachbarte Ortschaften',
@@ -84,15 +196,24 @@ function getMockTranslation(text, targetLang) {
     return mockTranslations[cleanText][targetLang];
   }
   
-  // Check if text contains a known phrase
+  // Check if text contains known phrases and translate them
+  let translatedText = cleanText;
+  let foundTranslation = false;
+  
   for (const [key, translations] of Object.entries(mockTranslations)) {
     if (cleanText.includes(key) && translations[targetLang]) {
-      return cleanText.replace(key, translations[targetLang]);
+      translatedText = translatedText.replace(key, translations[targetLang]);
+      foundTranslation = true;
     }
   }
   
-  // Return with language prefix if no translation found
-  return `[${targetLang.toUpperCase()}] ${cleanText}`;
+  // If we found at least one translation, return it
+  if (foundTranslation) {
+    return translatedText;
+  }
+  
+  // If no translation found, return original text (without prefix)
+  return cleanText;
 }
 
 async function generateProductTranslations() {
