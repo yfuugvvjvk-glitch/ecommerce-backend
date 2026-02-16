@@ -43,6 +43,7 @@ export const arbitraryGiftRuleData = (): fc.Arbitrary<CreateGiftRuleInput> =>
       name: fc.string({ minLength: 1, maxLength: 200 }),
       description: fc.option(fc.string({ maxLength: 1000 }), { nil: undefined }),
       priority: fc.integer({ min: 1, max: 100 }),
+      isActive: fc.boolean(),
       conditionLogic: fc.constantFrom('AND' as const, 'OR' as const),
       conditions: fc.array(arbitraryCondition(), { minLength: 1, maxLength: 3 }),
       giftProductIds: fc.array(fc.uuid(), { minLength: 1, maxLength: 5 }),

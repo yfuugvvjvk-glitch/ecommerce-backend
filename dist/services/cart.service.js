@@ -298,7 +298,17 @@ class CartService {
             rule: {
                 id: result.rule.id,
                 name: result.rule.name,
+                nameEn: result.rule.nameEn,
+                nameFr: result.rule.nameFr,
+                nameDe: result.rule.nameDe,
+                nameEs: result.rule.nameEs,
+                nameIt: result.rule.nameIt,
                 description: result.rule.description,
+                descriptionEn: result.rule.descriptionEn,
+                descriptionFr: result.rule.descriptionFr,
+                descriptionDe: result.rule.descriptionDe,
+                descriptionEs: result.rule.descriptionEs,
+                descriptionIt: result.rule.descriptionIt,
             },
             availableProducts: result.rule.giftProducts
                 .filter((gp) => gp.product.stock > 0)
@@ -308,6 +318,11 @@ class CartService {
                 product: {
                     id: gp.product.id,
                     title: gp.product.title,
+                    titleEn: gp.product.titleEn,
+                    titleFr: gp.product.titleFr,
+                    titleDe: gp.product.titleDe,
+                    titleEs: gp.product.titleEs,
+                    titleIt: gp.product.titleIt,
                     image: gp.product.image,
                     price: gp.product.price,
                     stock: gp.product.stock,

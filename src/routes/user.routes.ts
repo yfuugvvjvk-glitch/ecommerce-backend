@@ -1,9 +1,16 @@
 import { FastifyInstance } from 'fastify';
+import { z, ZodError } from 'zod';
 import { UserService } from '../services/user.service';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { uploadAvatar } from '../middleware/upload.middleware';
 
 const userService = new UserService();
+
+// Validation schemas
+const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Parola curentă este obligatorie'),
+  newPassword: z.string().min(6, 'Parola nouă trebuie să conțină cel puțin 6 caractere'),
+});
 
 export async function userRoutes(fastify: FastifyInstance) {
   // Profile
@@ -70,17 +77,66 @@ export async function userRoutes(fastify: FastifyInstance) {
     }
   });
 
+  /**
+   * POST /api/user/change-password
+   * Change user password with notification
+   * 
+   * Validates current password, updates to new password, and sends
+   * notification email with timestamp, IP address, and device info.
+   * 
+   * Requirements:
+   * - 3.1: Send notification to current email address
+   * - 3.2: Include date and time of change
+   * - 3.3: Include IP address
+   * - 3.4: Include device information
+   * - 3.5: Include "If this wasn't you" warning
+   */
   fastify.post('/change-password', { preHandler: authMiddleware }, async (request, reply) => {
     try {
-      const { oldPassword, newPassword } = request.body as any;
+      const body = ChangePasswordSchema.parse(request.body);
+      
+      // Extract IP address from request
+      const ipAddress = request.headers['x-forwarded-for'] as string || 
+                       request.headers['x-real-ip'] as string ||
+                       request.ip || 
+                       'IP necunoscut';
+      
+      // Extract user agent
+      const userAgent = request.headers['user-agent'] || 'User agent necunoscut';
+      
       const result = await userService.changePassword(
         request.user!.userId,
-        oldPassword,
-        newPassword
+        body.currentPassword,
+        body.newPassword,
+        ipAddress,
+        userAgent
       );
-      reply.send(result);
-    } catch (error: any) {
-      reply.code(400).send({ error: error.message });
+      
+      return reply.status(200).send({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Eroare de validare',
+          details: error.issues.map(issue => issue.message),
+        });
+      }
+
+      if (error instanceof Error) {
+        return reply.status(400).send({
+          success: false,
+          error: error.message,
+        });
+      }
+
+      fastify.log.error(error);
+      return reply.status(500).send({
+        success: false,
+        error: 'A apărut o eroare la schimbarea parolei. Vă rugăm să încercați din nou.',
+      });
     }
   });
 

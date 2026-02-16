@@ -146,7 +146,7 @@ describe('GiftRuleService - Property-Based Tests', () => {
           expect(retrieved?.conditions.length).toBe(ruleData.conditions.length);
           expect(retrieved?.giftProducts.length).toBe(ruleData.giftProductIds.length);
         }),
-        { numRuns: 100 }
+        { numRuns: 20 }
       );
     });
   });

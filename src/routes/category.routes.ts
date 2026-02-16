@@ -7,10 +7,17 @@ export async function categoryRoutes(fastify: FastifyInstance) {
   // Get all categories with hierarchy (public + admin)
   fastify.get('/', async (request, reply) => {
     try {
-      const { includeSubcategories, showAll } = request.query as any;
+      const { includeSubcategories, showAll, locale } = request.query as any;
+      const currentLocale = locale || 'ro';
       
       // Determină filtrul pentru isActive (admin vede toate, public doar active)
       const activeFilter = showAll === 'true' ? {} : { isActive: true };
+      
+      // Helper function to get translated name
+      const getTranslatedName = (category: any, locale: string) => {
+        const localeField = `name${locale.charAt(0).toUpperCase() + locale.slice(1)}`;
+        return (category as any)[localeField] || category.name;
+      };
       
       // Dacă se cere ierarhia completă
       if (includeSubcategories === 'true') {
@@ -19,6 +26,12 @@ export async function categoryRoutes(fastify: FastifyInstance) {
           select: {
             id: true,
             name: true,
+            nameRo: true,
+            nameEn: true,
+            nameFr: true,
+            nameDe: true,
+            nameEs: true,
+            nameIt: true,
             slug: true,
             icon: true,
             description: true,
@@ -32,6 +45,12 @@ export async function categoryRoutes(fastify: FastifyInstance) {
               select: {
                 id: true,
                 name: true,
+                nameRo: true,
+                nameEn: true,
+                nameFr: true,
+                nameDe: true,
+                nameEs: true,
+                nameIt: true,
                 slug: true,
                 icon: true,
                 description: true,
@@ -58,12 +77,39 @@ export async function categoryRoutes(fastify: FastifyInstance) {
           },
           orderBy: { position: 'asc' },
         });
-        reply.send(categories);
+        
+        // Map categories to include translated name
+        const translatedCategories = categories.map(cat => ({
+          ...cat,
+          name: getTranslatedName(cat, currentLocale),
+          subcategories: cat.subcategories.map(sub => ({
+            ...sub,
+            name: getTranslatedName(sub, currentLocale)
+          }))
+        }));
+        
+        reply.send(translatedCategories);
       } else {
         // Toate categoriile (flat)
         const categories = await prisma.category.findMany({
           where: activeFilter,
-          include: {
+          select: {
+            id: true,
+            name: true,
+            nameRo: true,
+            nameEn: true,
+            nameFr: true,
+            nameDe: true,
+            nameEs: true,
+            nameIt: true,
+            slug: true,
+            icon: true,
+            description: true,
+            position: true,
+            isActive: true,
+            parentId: true,
+            createdAt: true,
+            updatedAt: true,
             _count: {
               select: { 
                 dataItems: {
@@ -75,13 +121,30 @@ export async function categoryRoutes(fastify: FastifyInstance) {
               select: {
                 id: true,
                 name: true,
+                nameRo: true,
+                nameEn: true,
+                nameFr: true,
+                nameDe: true,
+                nameEs: true,
+                nameIt: true,
                 slug: true,
               },
             },
           },
           orderBy: [{ position: 'asc' }, { name: 'asc' }],
         });
-        reply.send(categories);
+        
+        // Map categories to include translated name
+        const translatedCategories = categories.map(cat => ({
+          ...cat,
+          name: getTranslatedName(cat, currentLocale),
+          parent: cat.parent ? {
+            ...cat.parent,
+            name: getTranslatedName(cat.parent, currentLocale)
+          } : null
+        }));
+        
+        reply.send(translatedCategories);
       }
     } catch (error) {
       console.error('Failed to get categories:', error);

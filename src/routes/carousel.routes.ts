@@ -15,7 +15,8 @@ export async function carouselRoutes(fastify: FastifyInstance) {
   // Obține item-urile active din carousel (pentru afișare publică)
   fastify.get('/active', async (request, reply) => {
     try {
-      const items = await carouselService.getActiveCarouselItems();
+      const { locale } = request.query as any;
+      const items = await carouselService.getActiveCarouselItems(locale);
       reply.send(items);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

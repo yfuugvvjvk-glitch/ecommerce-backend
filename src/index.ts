@@ -17,6 +17,8 @@ import { orderRoutes } from './routes/order.routes';
 import { voucherRoutes } from './routes/voucher.routes';
 import { adminRoutes } from './routes/admin.routes';
 import { userRoutes } from './routes/user.routes';
+import { emailChangeRoutes } from './routes/email-change.routes';
+import { phoneChangeRoutes } from './routes/phone-change.routes';
 import { openAIRoutes } from './routes/openai.routes';
 import { offerRoutes } from './routes/offer.routes';
 import { categoryRoutes } from './routes/category.routes';
@@ -24,6 +26,11 @@ import { chatRoutes } from './routes/chat.routes';
 import { publicRoutes } from './routes/public.routes';
 import { initializeRealtimeService } from './services/realtime.service';
 import { scheduleCurrencyUpdate, updateCurrenciesOnStartup } from './jobs/currency-update.job';
+import { 
+  scheduleVerificationCleanup, 
+  scheduleAccountLockoutCleanup, 
+  schedulePendingUserCleanup 
+} from './jobs/verification-cleanup.job';
 import { inventoryRoutes } from './routes/inventory.routes';
 
 // Validează variabilele de mediu la pornire
@@ -256,6 +263,8 @@ async function start() {
       await fastify.register(categoryRoutes, { prefix: '/api/categories' });
       await fastify.register(adminRoutes, { prefix: '/api/admin' });
       await fastify.register(userRoutes, { prefix: '/api/user' });
+      await fastify.register(emailChangeRoutes, { prefix: '/api/user' });
+      await fastify.register(phoneChangeRoutes, { prefix: '/api/user' });
       
       const { reviewRoutes } = await import('./routes/review.routes');
       await fastify.register(reviewRoutes, { prefix: '/api' });
@@ -353,6 +362,11 @@ async function start() {
     
     // 9. Programează actualizarea zilnică a cursurilor
     scheduleCurrencyUpdate();
+    
+    // 10. Programează curățarea automată a codurilor de verificare și deblocarea conturilor
+    scheduleVerificationCleanup();
+    scheduleAccountLockoutCleanup();
+    schedulePendingUserCleanup();
     
   } catch (err) {
     console.error('❌ Eroare fatală la pornirea serverului:', err);

@@ -71,6 +71,11 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
+    // Check if email is verified
+    if (!user.emailVerified) {
+      throw new Error('Email not verified. Please verify your email before logging in.');
+    }
+
     // Generate token
     const token = generateToken({
       userId: user.id,
@@ -113,4 +118,51 @@ export class AuthService {
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
+
+  async findUserByEmail(email: string): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  async generateToken(userId: string): Promise<string> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+  }
+
+
+    async createUser(data: {
+      email: string;
+      password: string;
+      name: string;
+      phone?: string;
+      emailVerified?: boolean;
+    }): Promise<User> {
+      const user = await prisma.user.create({
+        data: {
+          id: require('crypto').randomUUID(),
+          email: data.email,
+          password: data.password,
+          name: data.name,
+          phone: data.phone,
+          emailVerified: data.emailVerified || false,
+          emailVerifiedAt: data.emailVerified ? new Date() : null,
+          role: 'user',
+        },
+      });
+
+      return user;
+    }
+
 }

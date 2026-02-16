@@ -7,6 +7,20 @@ async function initializeSiteConfig() {
 
   const defaultConfigs = [
     {
+      key: 'site_name',
+      value: 'Din ograda mea direct pe masa ta',
+      type: 'text',
+      description: 'Numele site-ului',
+      isPublic: true
+    },
+    {
+      key: 'about_us',
+      value: 'Bun venit la Din ograda mea direct pe masa ta! Suntem o fermă locală dedicată să aducă produse proaspete și naturale direct de la noi la tine acasă. Cu pasiune pentru agricultură și respect pentru natură, cultivăm produse de cea mai înaltă calitate, fără chimicale dăunătoare. Fiecare produs este ales cu grijă pentru a-ți oferi cea mai bună experiență. Misiunea noastră este să promovăm un stil de viață sănătos prin produse naturale, proaspete și accesibile pentru toată familia.',
+      type: 'text',
+      description: 'Despre noi',
+      isPublic: true
+    },
+    {
       key: 'contact_email',
       value: 'crys.cristi@yahoo.com',
       type: 'text',
@@ -15,9 +29,16 @@ async function initializeSiteConfig() {
     },
     {
       key: 'contact_phone',
-      value: '+40 753 615 752',
+      value: '+40 753615752',
       type: 'text',
       description: 'Telefon de contact',
+      isPublic: true
+    },
+    {
+      key: 'contact_whatsapp',
+      value: '+40 753615752',
+      type: 'text',
+      description: 'WhatsApp de contact',
       isPublic: true
     },
     {
@@ -29,16 +50,23 @@ async function initializeSiteConfig() {
     },
     {
       key: 'company_cui',
-      value: 'CUI: [Completează CUI-ul]',
+      value: '',
       type: 'text',
       description: 'CUI-ul companiei',
       isPublic: true
     },
     {
-      key: 'company_reg_com',
-      value: 'Reg. Com.: [Completează Reg. Com.]',
+      key: 'company_reg_number',
+      value: '',
       type: 'text',
       description: 'Numărul de înregistrare la Registrul Comerțului',
+      isPublic: true
+    },
+    {
+      key: 'company_full_name',
+      value: '',
+      type: 'text',
+      description: 'Numele complet al companiei',
       isPublic: true
     },
     {
@@ -54,13 +82,6 @@ async function initializeSiteConfig() {
       }),
       type: 'json',
       description: 'Program de lucru',
-      isPublic: true
-    },
-    {
-      key: 'site_name',
-      value: 'Site Comerț Live',
-      type: 'text',
-      description: 'Numele site-ului',
       isPublic: true
     },
     {

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../utils/auth';
+import emailService, { PasswordChangeDetails } from './email.service';
 
 const prisma = new PrismaClient();
 
@@ -139,20 +140,26 @@ export class UserService {
     });
   }
 
-  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+    ipAddress: string,
+    userAgent: string
+  ) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('Utilizatorul nu a fost găsit');
     }
 
     const bcrypt = require('bcrypt');
     const isValid = await bcrypt.compare(oldPassword, user.password);
 
     if (!isValid) {
-      throw new Error('Invalid old password');
+      throw new Error('Parola veche este incorectă');
     }
 
     const hashedPassword = await hashPassword(newPassword);
@@ -162,7 +169,47 @@ export class UserService {
       data: { password: hashedPassword },
     });
 
-    return { message: 'Password changed successfully' };
+    // Send password change notification
+    const details: PasswordChangeDetails = {
+      timestamp: new Date(),
+      ipAddress,
+      deviceInfo: this.extractDeviceInfo(userAgent),
+      userAgent,
+    };
+
+    await emailService.sendPasswordChangeNotification(user.email, details);
+
+    return { message: 'Parola a fost schimbată cu succes' };
+  }
+
+  /**
+   * Extract device information from user agent string
+   */
+  private extractDeviceInfo(userAgent: string): string {
+    if (!userAgent) {
+      return 'Dispozitiv necunoscut';
+    }
+
+    // Detect mobile devices
+    if (/mobile/i.test(userAgent)) {
+      if (/android/i.test(userAgent)) {
+        return 'Dispozitiv Android';
+      } else if (/iphone|ipad|ipod/i.test(userAgent)) {
+        return 'Dispozitiv iOS';
+      }
+      return 'Dispozitiv mobil';
+    }
+
+    // Detect desktop OS
+    if (/windows/i.test(userAgent)) {
+      return 'Computer Windows';
+    } else if (/macintosh|mac os x/i.test(userAgent)) {
+      return 'Computer Mac';
+    } else if (/linux/i.test(userAgent)) {
+      return 'Computer Linux';
+    }
+
+    return 'Computer';
   }
 
   // Favorites

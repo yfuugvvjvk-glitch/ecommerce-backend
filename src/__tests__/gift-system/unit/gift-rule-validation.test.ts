@@ -54,6 +54,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
         name: '',
         description: 'Test description',
         priority: 50,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -74,6 +75,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
         name: '   ',
         description: 'Test description',
         priority: 50,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -118,6 +120,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
         name: 'Valid Rule Name',
         description: 'Test description',
         priority: 50,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -143,6 +146,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const invalidData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: 0,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -162,6 +166,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const invalidData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: -5,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -181,6 +186,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const invalidData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: 101,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -212,6 +218,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const validData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: 1,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -246,6 +253,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const validData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: 100,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -280,6 +288,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const validData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: 50,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -385,6 +394,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const invalidData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: 50,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {
@@ -416,6 +426,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
       const invalidData: CreateGiftRuleInput = {
         name: 'Test Rule',
         priority: 50,
+        isActive: true,
         conditionLogic: 'AND',
         conditions: [
           {

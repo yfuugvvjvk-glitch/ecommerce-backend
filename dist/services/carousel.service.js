@@ -347,7 +347,7 @@ class CarouselService {
         return await this.getCarouselItemById(itemId);
     }
     // Obține item-urile active pentru afișare publică
-    async getActiveCarouselItems() {
+    async getActiveCarouselItems(locale = 'ro') {
         const now = new Date();
         const items = await prisma.carouselItem.findMany({
             where: {
@@ -390,7 +390,18 @@ class CarouselService {
                         image: true,
                         stock: true,
                         rating: true,
-                        status: true
+                        status: true,
+                        // Include translations
+                        titleEn: true,
+                        titleFr: true,
+                        titleDe: true,
+                        titleEs: true,
+                        titleIt: true,
+                        descriptionEn: true,
+                        descriptionFr: true,
+                        descriptionDe: true,
+                        descriptionEs: true,
+                        descriptionIt: true
                     }
                 },
                 media: {
@@ -410,11 +421,38 @@ class CarouselService {
             }
         });
         // Filtrează produsele care nu sunt publicate
-        return items.filter(item => {
+        const filteredItems = items.filter(item => {
             if (item.type === 'product' && item.product) {
                 return item.product.status === 'published';
             }
             return true;
+        });
+        // Apply translations based on locale
+        return filteredItems.map(item => {
+            const translatedItem = { ...item };
+            // Translate customTitle and customDescription
+            if (locale !== 'ro') {
+                const titleField = `customTitle${locale.charAt(0).toUpperCase() + locale.slice(1)}`;
+                const descField = `customDescription${locale.charAt(0).toUpperCase() + locale.slice(1)}`;
+                if (item[titleField]) {
+                    translatedItem.customTitle = item[titleField];
+                }
+                if (item[descField]) {
+                    translatedItem.customDescription = item[descField];
+                }
+            }
+            // Translate product title and description if present
+            if (translatedItem.product && locale !== 'ro') {
+                const productTitleField = `title${locale.charAt(0).toUpperCase() + locale.slice(1)}`;
+                const productDescField = `description${locale.charAt(0).toUpperCase() + locale.slice(1)}`;
+                if (translatedItem.product[productTitleField]) {
+                    translatedItem.product.title = translatedItem.product[productTitleField];
+                }
+                if (translatedItem.product[productDescField]) {
+                    translatedItem.product.description = translatedItem.product[productDescField];
+                }
+            }
+            return translatedItem;
         });
     }
     // Obține statistici despre carousel

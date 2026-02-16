@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserService = void 0;
 const client_1 = require("@prisma/client");
 const auth_1 = require("../utils/auth");
+const email_service_1 = __importDefault(require("./email.service"));
 const prisma = new client_1.PrismaClient();
 class UserService {
     async getProfile(userId) {
@@ -121,24 +125,61 @@ class UserService {
             },
         });
     }
-    async changePassword(userId, oldPassword, newPassword) {
+    async changePassword(userId, oldPassword, newPassword, ipAddress, userAgent) {
         const user = await prisma.user.findUnique({
             where: { id: userId },
         });
         if (!user) {
-            throw new Error('User not found');
+            throw new Error('Utilizatorul nu a fost găsit');
         }
         const bcrypt = require('bcrypt');
         const isValid = await bcrypt.compare(oldPassword, user.password);
         if (!isValid) {
-            throw new Error('Invalid old password');
+            throw new Error('Parola veche este incorectă');
         }
         const hashedPassword = await (0, auth_1.hashPassword)(newPassword);
         await prisma.user.update({
             where: { id: userId },
             data: { password: hashedPassword },
         });
-        return { message: 'Password changed successfully' };
+        // Send password change notification
+        const details = {
+            timestamp: new Date(),
+            ipAddress,
+            deviceInfo: this.extractDeviceInfo(userAgent),
+            userAgent,
+        };
+        await email_service_1.default.sendPasswordChangeNotification(user.email, details);
+        return { message: 'Parola a fost schimbată cu succes' };
+    }
+    /**
+     * Extract device information from user agent string
+     */
+    extractDeviceInfo(userAgent) {
+        if (!userAgent) {
+            return 'Dispozitiv necunoscut';
+        }
+        // Detect mobile devices
+        if (/mobile/i.test(userAgent)) {
+            if (/android/i.test(userAgent)) {
+                return 'Dispozitiv Android';
+            }
+            else if (/iphone|ipad|ipod/i.test(userAgent)) {
+                return 'Dispozitiv iOS';
+            }
+            return 'Dispozitiv mobil';
+        }
+        // Detect desktop OS
+        if (/windows/i.test(userAgent)) {
+            return 'Computer Windows';
+        }
+        else if (/macintosh|mac os x/i.test(userAgent)) {
+            return 'Computer Mac';
+        }
+        else if (/linux/i.test(userAgent)) {
+            return 'Computer Linux';
+        }
+        return 'Computer';
     }
     // Favorites
     async getFavorites(userId) {

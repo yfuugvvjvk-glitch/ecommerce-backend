@@ -55,6 +55,8 @@ const order_routes_1 = require("./routes/order.routes");
 const voucher_routes_1 = require("./routes/voucher.routes");
 const admin_routes_1 = require("./routes/admin.routes");
 const user_routes_1 = require("./routes/user.routes");
+const email_change_routes_1 = require("./routes/email-change.routes");
+const phone_change_routes_1 = require("./routes/phone-change.routes");
 const openai_routes_1 = require("./routes/openai.routes");
 const offer_routes_1 = require("./routes/offer.routes");
 const category_routes_1 = require("./routes/category.routes");
@@ -62,6 +64,7 @@ const chat_routes_1 = require("./routes/chat.routes");
 const public_routes_1 = require("./routes/public.routes");
 const realtime_service_1 = require("./services/realtime.service");
 const currency_update_job_1 = require("./jobs/currency-update.job");
+const verification_cleanup_job_1 = require("./jobs/verification-cleanup.job");
 const inventory_routes_1 = require("./routes/inventory.routes");
 // Validează variabilele de mediu la pornire
 const env = (0, env_validator_1.validateEnv)();
@@ -257,6 +260,8 @@ async function start() {
             await fastify.register(category_routes_1.categoryRoutes, { prefix: '/api/categories' });
             await fastify.register(admin_routes_1.adminRoutes, { prefix: '/api/admin' });
             await fastify.register(user_routes_1.userRoutes, { prefix: '/api/user' });
+            await fastify.register(email_change_routes_1.emailChangeRoutes, { prefix: '/api/user' });
+            await fastify.register(phone_change_routes_1.phoneChangeRoutes, { prefix: '/api/user' });
             const { reviewRoutes } = await Promise.resolve().then(() => __importStar(require('./routes/review.routes')));
             await fastify.register(reviewRoutes, { prefix: '/api' });
             await fastify.register(openai_routes_1.openAIRoutes, { prefix: '/api/ai' });
@@ -329,6 +334,10 @@ async function start() {
         });
         // 9. Programează actualizarea zilnică a cursurilor
         (0, currency_update_job_1.scheduleCurrencyUpdate)();
+        // 10. Programează curățarea automată a codurilor de verificare și deblocarea conturilor
+        (0, verification_cleanup_job_1.scheduleVerificationCleanup)();
+        (0, verification_cleanup_job_1.scheduleAccountLockoutCleanup)();
+        (0, verification_cleanup_job_1.schedulePendingUserCleanup)();
     }
     catch (err) {
         console.error('❌ Eroare fatală la pornirea serverului:', err);

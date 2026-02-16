@@ -24,6 +24,11 @@ interface GiftProductData {
   product: {
     id: string;
     title: string;
+    titleEn?: string | null;
+    titleFr?: string | null;
+    titleDe?: string | null;
+    titleEs?: string | null;
+    titleIt?: string | null;
     image: string;
     price: number;
     stock: number;
@@ -35,7 +40,17 @@ interface GiftProductData {
 interface GiftRuleData {
   id: string;
   name: string;
+  nameEn: string | null;
+  nameFr: string | null;
+  nameDe: string | null;
+  nameEs: string | null;
+  nameIt: string | null;
   description: string | null;
+  descriptionEn: string | null;
+  descriptionFr: string | null;
+  descriptionDe: string | null;
+  descriptionEs: string | null;
+  descriptionIt: string | null;
   isActive: boolean;
   priority: number;
   conditionLogic: ConditionLogic;
@@ -162,7 +177,17 @@ class ConditionEvaluatorService {
     const rules: GiftRuleData[] = activeRules.map((rule) => ({
       id: rule.id,
       name: rule.name,
+      nameEn: rule.nameEn,
+      nameFr: rule.nameFr,
+      nameDe: rule.nameDe,
+      nameEs: rule.nameEs,
+      nameIt: rule.nameIt,
       description: rule.description,
+      descriptionEn: rule.descriptionEn,
+      descriptionFr: rule.descriptionFr,
+      descriptionDe: rule.descriptionDe,
+      descriptionEs: rule.descriptionEs,
+      descriptionIt: rule.descriptionIt,
       isActive: rule.isActive,
       priority: rule.priority,
       conditionLogic: rule.conditionLogic as ConditionLogic,

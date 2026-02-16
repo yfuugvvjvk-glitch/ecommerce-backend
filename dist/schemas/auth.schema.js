@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LoginSchema = exports.RegisterSchema = void 0;
+exports.ResendEmailCodeSchema = exports.VerifyEmailSchema = exports.LoginSchema = exports.RegisterSchema = void 0;
 const zod_1 = require("zod");
 exports.RegisterSchema = zod_1.z.object({
     email: zod_1.z.string().email('Invalid email format'),
@@ -22,4 +22,14 @@ exports.RegisterSchema = zod_1.z.object({
 exports.LoginSchema = zod_1.z.object({
     email: zod_1.z.string().email('Invalid email format'),
     password: zod_1.z.string().min(1, 'Password is required'),
+});
+exports.VerifyEmailSchema = zod_1.z.object({
+    email: zod_1.z.string().email('Invalid email format'),
+    code: zod_1.z
+        .string()
+        .length(6, 'Verification code must be exactly 6 digits')
+        .regex(/^\d{6}$/, 'Verification code must contain only digits'),
+});
+exports.ResendEmailCodeSchema = zod_1.z.object({
+    email: zod_1.z.string().email('Invalid email format'),
 });

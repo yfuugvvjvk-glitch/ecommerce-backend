@@ -417,7 +417,7 @@ class CarouselService {
   }
 
   // Obține item-urile active pentru afișare publică
-  async getActiveCarouselItems() {
+  async getActiveCarouselItems(locale: string = 'ro') {
     const now = new Date();
 
     const items = await prisma.carouselItem.findMany({
@@ -461,7 +461,18 @@ class CarouselService {
             image: true,
             stock: true,
             rating: true,
-            status: true
+            status: true,
+            // Include translations
+            titleEn: true,
+            titleFr: true,
+            titleDe: true,
+            titleEs: true,
+            titleIt: true,
+            descriptionEn: true,
+            descriptionFr: true,
+            descriptionDe: true,
+            descriptionEs: true,
+            descriptionIt: true
           }
         },
         media: {
@@ -482,11 +493,44 @@ class CarouselService {
     });
 
     // Filtrează produsele care nu sunt publicate
-    return items.filter(item => {
+    const filteredItems = items.filter(item => {
       if (item.type === 'product' && item.product) {
         return item.product.status === 'published';
       }
       return true;
+    });
+
+    // Apply translations based on locale
+    return filteredItems.map(item => {
+      const translatedItem = { ...item };
+
+      // Translate customTitle and customDescription
+      if (locale !== 'ro') {
+        const titleField = `customTitle${locale.charAt(0).toUpperCase() + locale.slice(1)}` as keyof typeof item;
+        const descField = `customDescription${locale.charAt(0).toUpperCase() + locale.slice(1)}` as keyof typeof item;
+
+        if (item[titleField]) {
+          translatedItem.customTitle = item[titleField] as string;
+        }
+        if (item[descField]) {
+          translatedItem.customDescription = item[descField] as string;
+        }
+      }
+
+      // Translate product title and description if present
+      if (translatedItem.product && locale !== 'ro') {
+        const productTitleField = `title${locale.charAt(0).toUpperCase() + locale.slice(1)}` as keyof typeof translatedItem.product;
+        const productDescField = `description${locale.charAt(0).toUpperCase() + locale.slice(1)}` as keyof typeof translatedItem.product;
+
+        if (translatedItem.product[productTitleField]) {
+          translatedItem.product.title = translatedItem.product[productTitleField] as string;
+        }
+        if (translatedItem.product[productDescField]) {
+          translatedItem.product.description = translatedItem.product[productDescField] as string;
+        }
+      }
+
+      return translatedItem;
     });
   }
 

@@ -14,7 +14,8 @@ async function carouselRoutes(fastify) {
     // Obține item-urile active din carousel (pentru afișare publică)
     fastify.get('/active', async (request, reply) => {
         try {
-            const items = await carousel_service_1.carouselService.getActiveCarouselItems();
+            const { locale } = request.query;
+            const items = await carousel_service_1.carouselService.getActiveCarouselItems(locale);
             reply.send(items);
         }
         catch (error) {
