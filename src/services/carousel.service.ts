@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -42,12 +43,12 @@ class CarouselService {
         type: true,
         title: true,
         customTitle: true,
-        product: {
+        DataItem: {
           select: {
             title: true
           }
         },
-        media: {
+        Media: {
           select: {
             title: true,
             originalName: true
@@ -72,10 +73,10 @@ class CarouselService {
       
       if (existingItem) {
         let title = existingItem.customTitle || existingItem.title;
-        if (!title && existingItem.type === 'product' && existingItem.product) {
-          title = existingItem.product.title;
-        } else if (!title && existingItem.type === 'media' && existingItem.media) {
-          title = existingItem.media.title || existingItem.media.originalName;
+        if (!title && existingItem.type === 'product' && (existingItem as any).DataItem) {
+          title = (existingItem as any).DataItem.title;
+        } else if (!title && existingItem.type === 'media' && (existingItem as any).Media) {
+          title = (existingItem as any).Media.title || (existingItem as any).Media.originalName;
         }
 
         positions.push({
@@ -134,7 +135,7 @@ class CarouselService {
     const items = await prisma.carouselItem.findMany({
       where,
       include: {
-        product: {
+        DataItem: {
           select: {
             id: true,
             title: true,
@@ -146,7 +147,7 @@ class CarouselService {
             rating: true
           }
         },
-        media: {
+        Media: {
           select: {
             id: true,
             filename: true,
@@ -160,7 +161,7 @@ class CarouselService {
             mimeType: true
           }
         },
-        createdBy: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -180,10 +181,9 @@ class CarouselService {
   async getCarouselItemById(id: string) {
     const item = await prisma.carouselItem.findUnique({
       where: { id },
-      include: {
-        product: true,
-        media: true,
-        createdBy: {
+      include: { DataItem: true,
+        Media: true,
+        User: {
           select: {
             id: true,
             name: true,
@@ -261,6 +261,7 @@ class CarouselService {
 
     const carouselItem = await prisma.carouselItem.create({
       data: {
+        id: crypto.randomUUID(),
         type: data.type,
         position: position,
         productId: data.productId,
@@ -275,11 +276,12 @@ class CarouselService {
         isActive: data.isActive !== undefined ? data.isActive : true,
         startDate: data.startDate,
         endDate: data.endDate,
-        createdById: userId
+        createdById: userId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
-      include: {
-        product: true,
-        media: true
+      include: { DataItem: true,
+        Media: true
       }
     });
 
@@ -322,9 +324,8 @@ class CarouselService {
         ...(data.startDate !== undefined && { startDate: data.startDate }),
         ...(data.endDate !== undefined && { endDate: data.endDate })
       },
-      include: {
-        product: true,
-        media: true
+      include: { DataItem: true,
+        Media: true
       }
     });
 
@@ -451,7 +452,7 @@ class CarouselService {
         ]
       },
       include: {
-        product: {
+        DataItem: {
           select: {
             id: true,
             title: true,
@@ -475,7 +476,7 @@ class CarouselService {
             descriptionIt: true
           }
         },
-        media: {
+        Media: {
           select: {
             id: true,
             url: true,
@@ -494,15 +495,15 @@ class CarouselService {
 
     // Filtrează produsele care nu sunt publicate
     const filteredItems = items.filter(item => {
-      if (item.type === 'product' && item.product) {
-        return item.product.status === 'published';
+      if (item.type === 'product' && (item as any).DataItem) {
+        return (item as any).DataItem.status === 'published';
       }
       return true;
     });
 
     // Apply translations based on locale
     return filteredItems.map(item => {
-      const translatedItem = { ...item };
+      const translatedItem: any = { ...item };
 
       // Translate customTitle and customDescription
       if (locale !== 'ro') {
@@ -518,15 +519,16 @@ class CarouselService {
       }
 
       // Translate product title and description if present
-      if (translatedItem.product && locale !== 'ro') {
-        const productTitleField = `title${locale.charAt(0).toUpperCase() + locale.slice(1)}` as keyof typeof translatedItem.product;
-        const productDescField = `description${locale.charAt(0).toUpperCase() + locale.slice(1)}` as keyof typeof translatedItem.product;
+      if ((item as any).DataItem && locale !== 'ro') {
+        const dataItem = (item as any).DataItem;
+        const productTitleField = `title${locale.charAt(0).toUpperCase() + locale.slice(1)}`;
+        const productDescField = `description${locale.charAt(0).toUpperCase() + locale.slice(1)}`;
 
-        if (translatedItem.product[productTitleField]) {
-          translatedItem.product.title = translatedItem.product[productTitleField] as string;
+        if (dataItem[productTitleField]) {
+          translatedItem.DataItem.title = dataItem[productTitleField];
         }
-        if (translatedItem.product[productDescField]) {
-          translatedItem.product.description = translatedItem.product[productDescField] as string;
+        if (dataItem[productDescField]) {
+          translatedItem.DataItem.description = dataItem[productDescField];
         }
       }
 

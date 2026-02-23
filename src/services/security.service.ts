@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -299,6 +300,7 @@ export class SecurityService {
           ipAddress: event.ipAddress,
           userAgent: event.userAgent,
           metadata: event.metadata || {},
+          createdAt: new Date(),
         },
       });
     } catch (error) {

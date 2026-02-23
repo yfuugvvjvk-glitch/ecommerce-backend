@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { realtimeService } from './realtime.service';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -41,11 +42,13 @@ export class AdvancedProductService {
 
       await tx.stockMovement.create({
         data: {
+          id: crypto.randomUUID(),
           dataItemId: productId,
           type: 'IN',
           quantity: quantity,
           reason: reason,
-          userId: userId
+          userId: userId,
+          createdAt: new Date(),
         }
       });
 
@@ -74,7 +77,7 @@ export class AdvancedProductService {
         category: {
           select: { name: true }
         },
-        stockMovements: {
+        StockMovement: {
           take: 10,
           orderBy: { createdAt: 'desc' },
           select: {
@@ -82,7 +85,7 @@ export class AdvancedProductService {
             quantity: true,
             reason: true,
             createdAt: true,
-            user: {
+            User: {
               select: { name: true }
             }
           }
@@ -148,7 +151,7 @@ export class AdvancedProductService {
         totalValue,
         
         // Mișcări de stoc recente
-        recentMovements: product.stockMovements,
+        recentMovements: product.StockMovement,
         
         // Informații despre livrare
         deliveryInfo: {

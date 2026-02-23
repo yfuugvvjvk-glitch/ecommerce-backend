@@ -21,7 +21,7 @@ interface GiftConditionData {
 interface GiftProductData {
   id: string;
   productId: string;
-  product: {
+  dataItem: {
     id: string;
     title: string;
     titleEn?: string | null;
@@ -40,17 +40,7 @@ interface GiftProductData {
 interface GiftRuleData {
   id: string;
   name: string;
-  nameEn: string | null;
-  nameFr: string | null;
-  nameDe: string | null;
-  nameEs: string | null;
-  nameIt: string | null;
   description: string | null;
-  descriptionEn: string | null;
-  descriptionFr: string | null;
-  descriptionDe: string | null;
-  descriptionEs: string | null;
-  descriptionIt: string | null;
   isActive: boolean;
   priority: number;
   conditionLogic: ConditionLogic;
@@ -69,7 +59,7 @@ interface CartItemWithProduct {
   quantity: number;
   isGift: boolean;
   giftRuleId: string | null;
-  product: {
+  dataItem: {
     id: string;
     title: string;
     price: number;
@@ -157,65 +147,83 @@ class ConditionEvaluatorService {
     const activeRules = await prisma.giftRule.findMany({
       where: { isActive: true },
       include: {
-        conditions: {
-          include: {
-            product: true,
-            category: true,
-            subConditions: true,
+        GiftCondition: {
+          include: { 
+            DataItem: true,
+            Category: true,
+            GiftCondition: true,
           },
         },
-        giftProducts: {
-          include: {
-            product: true,
-          },
+        GiftProduct: {
+          include: { DataItem: true },
         },
       },
       orderBy: { priority: 'desc' },
     });
 
+    console.log('📊 Found active rules:', activeRules.length);
+    activeRules.forEach(rule => {
+      console.log(`  - ${rule.name}: ${rule.GiftCondition.length} conditions, ${rule.GiftProduct.length} gift products`);
+      rule.GiftCondition.forEach(cond => {
+        console.log(`    Condition: type=${cond.type}, minAmount=${cond.minAmount}, parentConditionId=${cond.parentConditionId}`);
+      });
+      rule.GiftProduct.forEach(gp => {
+        console.log(`    Gift Product: ${gp.DataItem.title}, stock=${gp.DataItem.stock}`);
+      });
+    });
+
     // Transformă în GiftRuleData format
-    const rules: GiftRuleData[] = activeRules.map((rule) => ({
-      id: rule.id,
-      name: rule.name,
-      nameEn: rule.nameEn,
-      nameFr: rule.nameFr,
-      nameDe: rule.nameDe,
-      nameEs: rule.nameEs,
-      nameIt: rule.nameIt,
-      description: rule.description,
-      descriptionEn: rule.descriptionEn,
-      descriptionFr: rule.descriptionFr,
-      descriptionDe: rule.descriptionDe,
-      descriptionEs: rule.descriptionEs,
-      descriptionIt: rule.descriptionIt,
-      isActive: rule.isActive,
-      priority: rule.priority,
-      conditionLogic: rule.conditionLogic as ConditionLogic,
-      conditions: this.transformConditions(rule.conditions),
-      giftProducts: rule.giftProducts.map((gp) => ({
-        id: gp.id,
-        productId: gp.productId,
-        product: {
-          id: gp.product.id,
-          title: gp.product.title,
-          image: gp.product.image,
-          price: gp.product.price,
-          stock: gp.product.stock,
-        },
-        maxQuantityPerOrder: gp.maxQuantityPerOrder,
-        remainingStock: gp.remainingStock,
-      })),
-      maxUsesPerCustomer: rule.maxUsesPerCustomer,
-      maxTotalUses: rule.maxTotalUses,
-      currentTotalUses: rule.currentTotalUses,
-      validFrom: rule.validFrom,
-      validUntil: rule.validUntil,
-    }));
+    const rules: GiftRuleData[] = activeRules.map((rule) => {
+      const transformedConditions = this.transformConditions(rule.GiftCondition);
+      console.log(`📊 Rule "${rule.name}" transformed conditions:`, JSON.stringify(transformedConditions, null, 2));
+      
+      return {
+        id: rule.id,
+        name: rule.name,
+        description: rule.description,
+        isActive: rule.isActive,
+        priority: rule.priority,
+        conditionLogic: rule.conditionLogic as ConditionLogic,
+        conditions: transformedConditions,
+        giftProducts: rule.GiftProduct.map((gp) => ({
+          id: gp.id,
+          productId: gp.productId,
+          dataItem: {
+            id: gp.DataItem.id,
+            title: gp.DataItem.title,
+            titleEn: gp.DataItem.titleEn,
+            titleFr: gp.DataItem.titleFr,
+            titleDe: gp.DataItem.titleDe,
+            titleEs: gp.DataItem.titleEs,
+            titleIt: gp.DataItem.titleIt,
+            image: gp.DataItem.image,
+            price: gp.DataItem.price,
+            stock: gp.DataItem.stock,
+          },
+          maxQuantityPerOrder: gp.maxQuantityPerOrder,
+          remainingStock: gp.remainingStock,
+        })),
+        maxUsesPerCustomer: rule.maxUsesPerCustomer,
+        maxTotalUses: rule.maxTotalUses,
+        currentTotalUses: rule.currentTotalUses,
+        validFrom: rule.validFrom,
+        validUntil: rule.validUntil,
+      };
+    });
+
+    console.log('📊 Transformed rules:', rules.length);
+    console.log('📊 Context subtotal:', context.subtotal);
+    console.log('📊 Context cart items:', context.cartItems.length);
 
     // Evaluează fiecare regulă
     const results = await Promise.all(
       rules.map((rule) => this.evaluateRule(rule, context))
     );
+
+    console.log('📊 Evaluation results:');
+    results.forEach(result => {
+      console.log(`  - ${result.rule.name}: eligible=${result.isEligible}, reason=${result.reason || 'N/A'}`);
+    });
 
     return results;
   }
@@ -284,13 +292,18 @@ class ConditionEvaluatorService {
     condition: GiftConditionData,
     context: EvaluationContext
   ): boolean {
-    if (!condition.minAmount) return false;
+    if (!condition.minAmount) {
+      console.log('❌ MIN_AMOUNT condition has no minAmount value');
+      return false;
+    }
 
     // Calculează subtotal fără produsele cadou
     const subtotal = context.cartItems
       .filter((item) => !item.isGift)
-      .reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+      .reduce((sum, item) => sum + item.dataItem.price * item.quantity, 0);
 
+    console.log(`💰 MIN_AMOUNT evaluation: required=${condition.minAmount}, actual=${subtotal}, result=${subtotal >= condition.minAmount}`);
+    
     return subtotal >= condition.minAmount;
   }
 
@@ -323,7 +336,7 @@ class ConditionEvaluatorService {
     if (!condition.categoryId) return false;
 
     const categoryItems = context.cartItems.filter(
-      (item) => !item.isGift && item.product.categoryId === condition.categoryId
+      (item) => !item.isGift && item.dataItem.categoryId === condition.categoryId
     );
 
     if (categoryItems.length === 0) return false;
@@ -331,7 +344,7 @@ class ConditionEvaluatorService {
     // Dacă există minCategoryAmount, verifică suma
     if (condition.minCategoryAmount) {
       const categoryTotal = categoryItems.reduce(
-        (sum, item) => sum + item.product.price * item.quantity,
+        (sum, item) => sum + item.dataItem.price * item.quantity,
         0
       );
       return categoryTotal >= condition.minCategoryAmount;

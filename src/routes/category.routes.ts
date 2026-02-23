@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../utils/prisma';
 import { authMiddleware } from '../middleware/auth.middleware';
@@ -40,7 +41,7 @@ export async function categoryRoutes(fastify: FastifyInstance) {
             parentId: true,
             createdAt: true,
             updatedAt: true,
-            subcategories: {
+            other_Category: {
               where: activeFilter,
               select: {
                 id: true,
@@ -59,17 +60,16 @@ export async function categoryRoutes(fastify: FastifyInstance) {
                 parentId: true,
                 _count: {
                   select: { 
-                    dataItems: {
+                    DataItem: {
                       where: { status: 'published' }
                     }
                   },
                 },
               },
-              orderBy: { position: 'asc' },
             },
             _count: {
               select: { 
-                dataItems: {
+                DataItem: {
                   where: { status: 'published' }
                 }
               },
@@ -78,15 +78,30 @@ export async function categoryRoutes(fastify: FastifyInstance) {
           orderBy: { position: 'asc' },
         });
         
-        // Map categories to include translated name
-        const translatedCategories = categories.map(cat => ({
-          ...cat,
-          name: getTranslatedName(cat, currentLocale),
-          subcategories: cat.subcategories.map(sub => ({
-            ...sub,
-            name: getTranslatedName(sub, currentLocale)
-          }))
-        }));
+        // Map categories to include translated name and transform _count
+        const translatedCategories = categories.map((cat: any) => {
+          // Calculate total products (category + all subcategories)
+          const categoryProducts = cat._count?.DataItem || 0;
+          const subcategoryProducts = cat.other_Category.reduce((sum: number, sub: any) => {
+            return sum + (sub._count?.DataItem || 0);
+          }, 0);
+          const totalProducts = categoryProducts + subcategoryProducts;
+          
+          return {
+            ...cat,
+            name: getTranslatedName(cat, currentLocale),
+            _count: {
+              dataItems: totalProducts // Total including subcategories
+            },
+            subcategories: cat.other_Category.sort((a: any, b: any) => a.position - b.position).map((sub: any) => ({
+              ...sub,
+              name: getTranslatedName(sub, currentLocale),
+              _count: {
+                dataItems: sub._count?.DataItem || 0
+              }
+            }))
+          };
+        });
         
         reply.send(translatedCategories);
       } else {
@@ -112,12 +127,12 @@ export async function categoryRoutes(fastify: FastifyInstance) {
             updatedAt: true,
             _count: {
               select: { 
-                dataItems: {
+                DataItem: {
                   where: { status: 'published' }
                 }
               },
             },
-            parent: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -134,13 +149,16 @@ export async function categoryRoutes(fastify: FastifyInstance) {
           orderBy: [{ position: 'asc' }, { name: 'asc' }],
         });
         
-        // Map categories to include translated name
-        const translatedCategories = categories.map(cat => ({
+        // Map categories to include translated name and transform _count
+        const translatedCategories = categories.map((cat: any) => ({
           ...cat,
           name: getTranslatedName(cat, currentLocale),
-          parent: cat.parent ? {
-            ...cat.parent,
-            name: getTranslatedName(cat.parent, currentLocale)
+          _count: {
+            dataItems: cat._count?.DataItem || 0
+          },
+          parent: cat.Category ? {
+            ...cat.Category,
+            name: getTranslatedName(cat.Category, currentLocale)
           } : null
         }));
         
@@ -160,12 +178,12 @@ export async function categoryRoutes(fastify: FastifyInstance) {
       const category = await prisma.category.findUnique({
         where: { slug },
         include: {
-          subcategories: {
+          other_Category: {
             where: { isActive: true },
             include: {
               _count: {
                 select: { 
-                  dataItems: {
+                  DataItem: {
                     where: { status: 'published' }
                   }
                 },
@@ -173,7 +191,7 @@ export async function categoryRoutes(fastify: FastifyInstance) {
             },
             orderBy: { position: 'asc' },
           },
-          parent: {
+          Category: {
             select: {
               id: true,
               name: true,
@@ -183,7 +201,7 @@ export async function categoryRoutes(fastify: FastifyInstance) {
           },
           _count: {
             select: { 
-              dataItems: {
+              DataItem: {
                 where: { status: 'published' }
               }
             },
@@ -215,6 +233,7 @@ export async function categoryRoutes(fastify: FastifyInstance) {
       
       const category = await prisma.category.create({
         data: {
+          id: crypto.randomUUID(),
           name: data.name,
           slug: data.slug,
           nameRo: data.nameRo,
@@ -224,9 +243,11 @@ export async function categoryRoutes(fastify: FastifyInstance) {
           parentId: data.parentId || null,
           position: data.position || 0,
           isActive: data.isActive !== undefined ? data.isActive : true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         include: {
-          parent: {
+          Category: {
             select: {
               id: true,
               name: true,
@@ -272,7 +293,7 @@ export async function categoryRoutes(fastify: FastifyInstance) {
           isActive: data.isActive,
         },
         include: {
-          parent: {
+          Category: {
             select: {
               id: true,
               name: true,

@@ -101,9 +101,12 @@ export class CartService {
     // Create new cart item
     const newItem = await prisma.cartItem.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
         dataItemId,
         quantity,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
       include: { dataItem: { include: { category: true } } },
     });
@@ -210,11 +213,14 @@ export class CartService {
     // 3. Adaugă în coș cu isGift = true
     const cartItem = await prisma.cartItem.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
         dataItemId: productId,
         quantity: 1,
         isGift: true,
         giftRuleId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
       include: {
         dataItem: { include: { category: true } },
@@ -284,7 +290,7 @@ export class CartService {
         await prisma.cartItem.delete({ where: { id: giftItem.id } });
         removedGifts.push({
           cartItemId: giftItem.id,
-          productName: giftItem.product.title,
+          productName: giftItem.dataItem.title,
           reason: 'Gift rule no longer exists',
         });
         continue;
@@ -297,7 +303,7 @@ export class CartService {
         await prisma.cartItem.delete({ where: { id: giftItem.id } });
         removedGifts.push({
           cartItemId: giftItem.id,
-          productName: giftItem.product.title,
+          productName: giftItem.dataItem.title,
           reason: result.reason || 'Conditions no longer met',
         });
       }
@@ -317,52 +323,58 @@ export class CartService {
     const { conditionEvaluator } = await import('./condition-evaluator.service');
 
     const cartItems = await this.getCartItemsWithProduct(userId);
+    console.log('🛒 Cart items for gift evaluation:', JSON.stringify(cartItems, null, 2));
+    
     const context = this.buildEvaluationContext(cartItems, userId);
+    console.log('📊 Evaluation context:', JSON.stringify(context, null, 2));
 
     // Evaluează toate regulile active
     const results = await conditionEvaluator.evaluateAllRules(context);
 
     // Filtrează doar regulile eligibile
+    console.log('🎯 Filtering eligible rules from results:', results.length);
     const eligibleRules = results
-      .filter((result) => result.isEligible)
-      .map((result) => ({
-        rule: {
-          id: result.rule.id,
-          name: result.rule.name,
-          nameEn: result.rule.nameEn,
-          nameFr: result.rule.nameFr,
-          nameDe: result.rule.nameDe,
-          nameEs: result.rule.nameEs,
-          nameIt: result.rule.nameIt,
-          description: result.rule.description,
-          descriptionEn: result.rule.descriptionEn,
-          descriptionFr: result.rule.descriptionFr,
-          descriptionDe: result.rule.descriptionDe,
-          descriptionEs: result.rule.descriptionEs,
-          descriptionIt: result.rule.descriptionIt,
-        },
-        availableProducts: result.rule.giftProducts
-          .filter((gp) => gp.product.stock > 0)
-          .map((gp) => ({
+      .filter((result) => {
+        console.log(`  Rule "${result.rule.name}": eligible=${result.isEligible}, reason=${result.reason || 'N/A'}`);
+        return result.isEligible;
+      })
+      .map((result) => {
+        const availableProducts = result.rule.giftProducts.filter((gp) => gp.dataItem.stock > 0);
+        console.log(`  Rule "${result.rule.name}" has ${availableProducts.length} available products (${result.rule.giftProducts.length} total)`);
+        return {
+          rule: {
+            id: result.rule.id,
+            name: result.rule.name,
+            description: result.rule.description,
+          },
+          availableProducts: availableProducts.map((gp) => ({
             id: gp.id,
             productId: gp.productId,
             product: {
-              id: gp.product.id,
-              title: gp.product.title,
-              titleEn: gp.product.titleEn,
-              titleFr: gp.product.titleFr,
-              titleDe: gp.product.titleDe,
-              titleEs: gp.product.titleEs,
-              titleIt: gp.product.titleIt,
-              image: gp.product.image,
-              price: gp.product.price,
-              stock: gp.product.stock,
+              id: gp.dataItem.id,
+              title: gp.dataItem.title,
+              titleEn: gp.dataItem.titleEn,
+              titleFr: gp.dataItem.titleFr,
+              titleDe: gp.dataItem.titleDe,
+              titleEs: gp.dataItem.titleEs,
+              titleIt: gp.dataItem.titleIt,
+              image: gp.dataItem.image,
+              price: gp.dataItem.price,
+              stock: gp.dataItem.stock,
             },
             maxQuantityPerOrder: gp.maxQuantityPerOrder,
           })),
-      }))
-      .filter((rule) => rule.availableProducts.length > 0);
+        };
+      })
+      .filter((rule) => {
+        const hasProducts = rule.availableProducts.length > 0;
+        if (!hasProducts) {
+          console.log(`  ⚠️ Rule "${rule.rule.name}" filtered out - no available products`);
+        }
+        return hasProducts;
+      });
 
+    console.log(`✅ Final eligible rules count: ${eligibleRules.length}`);
     return eligibleRules;
   }
 
@@ -374,8 +386,7 @@ export class CartService {
       where: { userId },
       include: {
         dataItem: {
-          include: {
-            category: true,
+          include: { category: true,
           },
         },
       },
@@ -387,7 +398,7 @@ export class CartService {
       quantity: item.quantity,
       isGift: item.isGift,
       giftRuleId: item.giftRuleId,
-      product: {
+      dataItem: {
         id: item.dataItem.id,
         title: item.dataItem.title,
         price: item.dataItem.price,
@@ -404,7 +415,7 @@ export class CartService {
     // Calculează subtotal fără cadouri
     const subtotal = cartItems
       .filter((item) => !item.isGift)
-      .reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+      .reduce((sum, item) => sum + item.dataItem.price * item.quantity, 0);
 
     // Extrage ID-urile regulilor deja folosite
     const existingGiftRuleIds = cartItems

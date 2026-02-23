@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 
@@ -61,6 +62,7 @@ export class GiftRuleService {
     // Creează regula cu condiții și produse cadou
     const rule = await prisma.giftRule.create({
       data: {
+        id: crypto.randomUUID(),
         name: validated.name,
         description: validated.description,
         priority: validated.priority,
@@ -70,27 +72,32 @@ export class GiftRuleService {
         validFrom: validated.validFrom ? new Date(validated.validFrom) : null,
         validUntil: validated.validUntil ? new Date(validated.validUntil) : null,
         createdById: userId,
-        conditions: {
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        GiftCondition: {
           create: this.buildConditionsData(validated.conditions),
         },
-        giftProducts: {
+        GiftProduct: {
           create: validated.giftProductIds.map((productId) => ({
+            id: crypto.randomUUID(),
             productId,
             maxQuantityPerOrder: 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           })),
         },
       },
       include: {
-        conditions: {
-          include: {
-            product: true,
-            category: true,
-            subConditions: true,
+        GiftCondition: {
+          include: { 
+            DataItem: true,
+            Category: true,
+            GiftCondition: true,
           },
         },
-        giftProducts: {
-          include: {
-            product: true,
+        GiftProduct: {
+          include: { 
+            DataItem: true,
           },
         },
       },
@@ -164,16 +171,14 @@ export class GiftRuleService {
       where: { id },
       data: updateData,
       include: {
-        conditions: {
-          include: {
-            product: true,
-            category: true,
-            subConditions: true,
+        GiftCondition: {
+          include: { DataItem: true,
+            Category: true,
+            GiftCondition: true,
           },
         },
-        giftProducts: {
-          include: {
-            product: true,
+        GiftProduct: {
+          include: { DataItem: true,
           },
         },
       },
@@ -206,19 +211,17 @@ export class GiftRuleService {
     const rule = await prisma.giftRule.findUnique({
       where: { id },
       include: {
-        conditions: {
-          include: {
-            product: true,
-            category: true,
-            subConditions: true,
+        GiftCondition: {
+          include: { DataItem: true,
+            Category: true,
+            GiftCondition: true,
           },
         },
-        giftProducts: {
-          include: {
-            product: true,
+        GiftProduct: {
+          include: { DataItem: true,
           },
         },
-        createdBy: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -240,19 +243,17 @@ export class GiftRuleService {
     const rules = await prisma.giftRule.findMany({
       where,
       include: {
-        conditions: {
-          include: {
-            product: true,
-            category: true,
-            subConditions: true,
+        GiftCondition: {
+          include: { DataItem: true,
+            Category: true,
+            GiftCondition: true,
           },
         },
-        giftProducts: {
-          include: {
-            product: true,
+        GiftProduct: {
+          include: { DataItem: true,
           },
         },
-        createdBy: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -289,16 +290,14 @@ export class GiftRuleService {
         ],
       },
       include: {
-        conditions: {
-          include: {
-            product: true,
-            category: true,
-            subConditions: true,
+        GiftCondition: {
+          include: { DataItem: true,
+            Category: true,
+            GiftCondition: true,
           },
         },
-        giftProducts: {
-          include: {
-            product: true,
+        GiftProduct: {
+          include: { DataItem: true,
           },
         },
       },
@@ -324,16 +323,14 @@ export class GiftRuleService {
       where: { id },
       data: { isActive },
       include: {
-        conditions: {
-          include: {
-            product: true,
-            category: true,
-            subConditions: true,
+        GiftCondition: {
+          include: { DataItem: true,
+            Category: true,
+            GiftCondition: true,
           },
         },
-        giftProducts: {
-          include: {
-            product: true,
+        GiftProduct: {
+          include: { DataItem: true,
           },
         },
       },
@@ -349,10 +346,10 @@ export class GiftRuleService {
     const rule = await prisma.giftRule.findUnique({
       where: { id },
       include: {
-        usageHistory: {
-          include: {
-            product: true,
-            user: {
+        GiftRuleUsage: {
+          include: { 
+            DataItem: true,
+            User: {
               select: {
                 id: true,
                 name: true,
@@ -369,32 +366,32 @@ export class GiftRuleService {
     }
 
     // Calculează statistici
-    const totalUses = rule.usageHistory.length;
-    const uniqueUsers = new Set(rule.usageHistory.map((u) => u.userId)).size;
+    const totalUses = rule.GiftRuleUsage.length;
+    const uniqueUsers = new Set(rule.GiftRuleUsage.map((u: any) => u.userId)).size;
 
     // Calculează valoarea totală oferită
-    const totalValueGiven = rule.usageHistory.reduce((sum, usage) => {
-      return sum + (usage.product.price || 0);
+    const totalValueGiven = rule.GiftRuleUsage.reduce((sum: number, usage: any) => {
+      return sum + (usage.DataItem.price || 0);
     }, 0);
 
     // Grupează utilizările pe produs
-    const usageByProduct = rule.usageHistory.reduce((acc, usage) => {
+    const usageByProduct = rule.GiftRuleUsage.reduce((acc: any, usage: any) => {
       const productId = usage.productId;
       if (!acc[productId]) {
         acc[productId] = {
           productId,
-          productName: usage.product.title,
+          productName: usage.DataItem.title,
           count: 0,
           totalValue: 0,
         };
       }
       acc[productId].count++;
-      acc[productId].totalValue += usage.product.price || 0;
+      acc[productId].totalValue += usage.DataItem.price || 0;
       return acc;
     }, {} as Record<string, any>);
 
     // Grupează utilizările pe zi pentru grafic
-    const usageByDate = rule.usageHistory.reduce((acc, usage) => {
+    const usageByDate = rule.GiftRuleUsage.reduce((acc: any, usage: any) => {
       const date = new Date(usage.usedAt).toISOString().split('T')[0];
       if (!acc[date]) {
         acc[date] = 0;
@@ -421,6 +418,7 @@ export class GiftRuleService {
    */
   private buildConditionsData(conditions: ConditionInput[]): any[] {
     return conditions.map((condition) => ({
+      id: crypto.randomUUID(),
       type: condition.type,
       minAmount: condition.minAmount,
       productId: condition.productId,
@@ -428,6 +426,8 @@ export class GiftRuleService {
       categoryId: condition.categoryId,
       minCategoryAmount: condition.minCategoryAmount,
       logic: condition.logic,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       subConditions: condition.subConditions
         ? {
             create: this.buildConditionsData(condition.subConditions),

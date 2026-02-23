@@ -260,6 +260,7 @@ export class DataService {
   ): Promise<DataItem> {
     return prisma.dataItem.create({
       data: {
+        id: crypto.randomUUID(),
         title: data.title,
         description: data.description,
         content: data.content,
@@ -298,7 +299,9 @@ export class DataService {
         showInCarousel: data.showInCarousel || false,
         carouselOrder: data.carouselOrder || 0,
         // Salvează cantitățile disponibile ca JSON
-        availableQuantities: data.availableQuantities ? JSON.stringify(data.availableQuantities) : JSON.stringify([1])
+        availableQuantities: data.availableQuantities ? JSON.stringify(data.availableQuantities) : JSON.stringify([1]),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   }

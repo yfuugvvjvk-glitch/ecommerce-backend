@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../utils/auth';
 import emailService, { PasswordChangeDetails } from './email.service';
@@ -216,15 +217,20 @@ export class UserService {
   async getFavorites(userId: string) {
     return await prisma.favorite.findMany({
       where: { userId },
-      include: { dataItem: { include: { category: true } } },
+      include: { DataItem: { include: { category: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   async addFavorite(userId: string, dataItemId: string) {
     return await prisma.favorite.create({
-      data: { userId, dataItemId },
-      include: { dataItem: { include: { category: true } } },
+      data: { 
+        id: crypto.randomUUID(),
+        userId, 
+        dataItemId,
+        createdAt: new Date(),
+      },
+      include: { DataItem: { include: { category: true } } },
     });
   }
 
@@ -260,7 +266,7 @@ export class UserService {
   async getMyReviews(userId: string) {
     return await prisma.review.findMany({
       where: { userId },
-      include: { dataItem: { include: { category: true } } },
+      include: { DataItem: { include: { category: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -272,12 +278,15 @@ export class UserService {
   }) {
     return await prisma.review.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
         dataItemId: data.dataItemId,
         rating: data.rating,
         comment: data.comment,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
-      include: { dataItem: { include: { category: true } } },
+      include: { DataItem: { include: { category: true } } },
     });
   }
 

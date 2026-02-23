@@ -110,8 +110,8 @@ model CartItem {
   updatedAt  DateTime
   giftRuleId String?
   isGift     Boolean   @default(false)
-  DataItem   DataItem  @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
-  GiftRule   GiftRule? @relation(fields: [giftRuleId], references: [id])
+  dataItem   DataItem  @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+  giftRule   GiftRule? @relation(fields: [giftRuleId], references: [id])
   User       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, dataItemId, isGift])
@@ -308,7 +308,7 @@ model DataItem {
   titleIt               String?
   CarouselItem          CarouselItem[]
   CartItem              CartItem[]
-  Category              Category            @relation(fields: [categoryId], references: [id])
+  category              Category            @relation(fields: [categoryId], references: [id])
   User                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   Favorite              Favorite[]
   GiftCondition         GiftCondition[]
@@ -317,7 +317,7 @@ model DataItem {
   NavigationHistory     NavigationHistory[]
   OrderItem             OrderItem[]
   ProductOffer          ProductOffer[]
-  Review                Review[]
+  reviews               Review[]
   StockMovement         StockMovement[]
 
   @@index([availabilityType])
@@ -653,8 +653,8 @@ model Order {
   CardTransaction    CardTransaction?
   GiftRuleUsage      GiftRuleUsage[]
   DeliveryLocation   DeliveryLocation? @relation(fields: [deliveryLocationId], references: [id])
-  User               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  OrderItem          OrderItem[]
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItems         OrderItem[]
   UserVoucher        UserVoucher?
 
   @@index([deliveryLocationId])
@@ -672,7 +672,7 @@ model OrderItem {
   giftRuleId    String?
   isGift        Boolean   @default(false)
   originalPrice Float?
-  DataItem      DataItem  @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+  dataItem      DataItem  @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
   GiftRule      GiftRule? @relation(fields: [giftRuleId], references: [id])
   Order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -854,7 +854,7 @@ model StockMovement {
   userId     String?
   notes      String?
   createdAt  DateTime @default(now())
-  DataItem   DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
+  dataItem   DataItem @relation(fields: [dataItemId], references: [id], onDelete: Cascade)
   User       User?    @relation(fields: [userId], references: [id])
 
   @@index([createdAt])

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { adminMiddleware } from '../middleware/admin.middleware';
@@ -64,6 +65,7 @@ export async function mediaRoutes(fastify: FastifyInstance) {
                 // Creează înregistrare în DB
                 const media = await prisma.media.create({
                   data: {
+                    id: crypto.randomUUID(),
                     filename: item,
                     originalName: item,
                     path: `/uploads/${category}/${item}`,
@@ -75,6 +77,8 @@ export async function mediaRoutes(fastify: FastifyInstance) {
                     category,
                     uploadedById: (request.user as any)?.userId || 'system',
                     uploadedBy: (request.user as any)?.email || 'system',
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
                   }
                 });
 
@@ -157,6 +161,7 @@ export async function mediaRoutes(fastify: FastifyInstance) {
         // Creează înregistrare în DB
         const media = await prisma.media.create({
           data: {
+            id: crypto.randomUUID(),
             filename,
             originalName: data.filename,
             path: `/uploads/media/${filename}`,
@@ -168,6 +173,8 @@ export async function mediaRoutes(fastify: FastifyInstance) {
             category: 'media',
             uploadedById: (request.user as any).userId,
             uploadedBy: (request.user as any).email,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           }
         });
 

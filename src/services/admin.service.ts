@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -49,7 +50,7 @@ export class AdminService {
           phone: true,
           role: true,
           createdAt: true,
-          _count: { select: { orders: true } },
+          _count: { select: { Order: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -87,7 +88,7 @@ export class AdminService {
         createdAt: true,
         _count: { 
           select: { 
-            orders: true,
+            Order: true,
             reviews: true,
             favorites: true
           } 
@@ -147,8 +148,7 @@ export class AdminService {
       where: { id: orderId },
       include: {
         orderItems: {
-          include: {
-            dataItem: true
+          include: { dataItem: true
           }
         }
       }
@@ -191,8 +191,7 @@ export class AdminService {
       data: { status },
       include: {
         orderItems: {
-          include: {
-            dataItem: true
+          include: { dataItem: true
           }
         }
       }
@@ -212,7 +211,14 @@ export class AdminService {
       data.validUntil = new Date(data.validUntil).toISOString();
     }
     
-    return await prisma.voucher.create({ data });
+    return await prisma.voucher.create({ 
+      data: {
+        id: crypto.randomUUID(),
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    });
   }
 
   async getAllVouchers() {
@@ -243,7 +249,7 @@ export class AdminService {
   async getAllVoucherRequests() {
     return await prisma.voucherRequest.findMany({
       include: {
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -287,6 +293,7 @@ export class AdminService {
       // Create new voucher from request
       voucher = await prisma.voucher.create({
         data: {
+          id: crypto.randomUUID(),
           code: request.code,
           description: request.description,
           discountType: request.discountType,
@@ -297,6 +304,8 @@ export class AdminService {
           validUntil: request.validUntil,
           isActive: true,
           createdById: request.userId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
     }

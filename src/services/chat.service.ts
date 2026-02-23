@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -10,37 +11,40 @@ export class ChatService {
       const existingRoom = await prisma.chatRoom.findFirst({
         where: {
           type: 'DIRECT',
-          members: {
+          ChatRoomMember: {
             every: {
               userId: { in: [userId1, userId2] }
             }
           }
         },
         include: {
-          members: true
+          ChatRoomMember: true
         }
       });
 
-      if (existingRoom && existingRoom.members.length === 2) {
+      if (existingRoom && existingRoom.ChatRoomMember.length === 2) {
         return existingRoom;
       }
 
       // Creează o nouă cameră directă
       const chatRoom = await prisma.chatRoom.create({
         data: {
+          id: crypto.randomUUID(),
           type: 'DIRECT',
           createdById: userId1,
-          members: {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ChatRoomMember: {
             create: [
-              { userId: userId1, role: 'MEMBER' },
-              { userId: userId2, role: 'MEMBER' }
+              { id: crypto.randomUUID(), userId: userId1, role: 'MEMBER' },
+              { id: crypto.randomUUID(), userId: userId2, role: 'MEMBER' }
             ]
           }
         },
         include: {
-          members: {
+          ChatRoomMember: {
             include: {
-              user: {
+              User: {
                 select: {
                   id: true,
                   name: true,
@@ -68,14 +72,18 @@ export class ChatService {
 
       const chatRoom = await prisma.chatRoom.create({
         data: {
+          id: crypto.randomUUID(),
           name,
           description,
           type: 'GROUP',
           createdById: creatorId,
-          members: {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ChatRoomMember: {
             create: [
-              { userId: creatorId, role: 'ADMIN' },
+              { id: crypto.randomUUID(), userId: creatorId, role: 'ADMIN' },
               ...memberIds.filter(id => id !== creatorId).map(userId => ({
+                id: crypto.randomUUID(),
                 userId,
                 role: 'MEMBER'
               }))
@@ -83,9 +91,9 @@ export class ChatService {
           }
         },
         include: {
-          members: {
+          ChatRoomMember: {
             include: {
-              user: {
+              User: {
                 select: {
                   id: true,
                   name: true,
@@ -122,14 +130,14 @@ export class ChatService {
       const existingSupport = await prisma.chatRoom.findFirst({
         where: {
           type: 'SUPPORT',
-          members: {
+          ChatRoomMember: {
             some: { userId }
           }
         },
         include: {
-          members: {
+          ChatRoomMember: {
             include: {
-              user: {
+              User: {
                 select: {
                   id: true,
                   name: true,
@@ -150,20 +158,23 @@ export class ChatService {
       // Creează o nouă cameră de support
       const supportRoom = await prisma.chatRoom.create({
         data: {
+          id: crypto.randomUUID(),
           name: `Support - ${userId.substring(0, 8)}`,
           type: 'SUPPORT',
           createdById: userId,
-          members: {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ChatRoomMember: {
             create: [
-              { userId, role: 'MEMBER' },
-              { userId: admin.id, role: 'ADMIN' }
+              { id: crypto.randomUUID(), userId, role: 'MEMBER' },
+              { id: crypto.randomUUID(), userId: admin.id, role: 'ADMIN' }
             ]
           }
         },
         include: {
-          members: {
+          ChatRoomMember: {
             include: {
-              user: {
+              User: {
                 select: {
                   id: true,
                   name: true,
@@ -189,7 +200,7 @@ export class ChatService {
     try {
       const chatRooms = await prisma.chatRoom.findMany({
         where: {
-          members: {
+          ChatRoomMember: {
             some: {
               userId,
               isActive: true
@@ -198,10 +209,10 @@ export class ChatService {
           isActive: true
         },
         include: {
-          members: {
+          ChatRoomMember: {
             where: { isActive: true },
             include: {
-              user: {
+              User: {
                 select: {
                   id: true,
                   name: true,
@@ -212,29 +223,15 @@ export class ChatService {
               }
             }
           },
-          messages: {
+          ChatMessage: {
             orderBy: { createdAt: 'desc' },
             take: 1,
             include: {
-              sender: {
+              User: {
                 select: {
                   id: true,
                   name: true,
                   avatar: true
-                }
-              }
-            }
-          },
-          _count: {
-            select: {
-              messages: {
-                where: {
-                  readBy: {
-                    none: {
-                      userId
-                    }
-                  },
-                  senderId: { not: userId }
                 }
               }
             }
@@ -245,11 +242,28 @@ export class ChatService {
         }
       });
 
-      return chatRooms.map(room => ({
-        ...room,
-        unreadCount: room._count.messages,
-        lastMessage: room.messages[0] || null
-      }));
+      // Calculate unread count for each room
+      const roomsWithUnread = await Promise.all(
+        chatRooms.map(async (room) => {
+          const unreadCount = await prisma.chatMessage.count({
+            where: {
+              chatRoomId: room.id,
+              senderId: { not: userId },
+              ChatMessageRead: {
+                none: { userId }
+              }
+            }
+          });
+
+          return {
+            ...room,
+            unreadCount,
+            lastMessage: room.ChatMessage[0] || null
+          };
+        })
+      );
+
+      return roomsWithUnread;
     } catch (error) {
       console.error('Error getting user chat rooms:', error);
       throw new Error('Failed to get chat rooms');
@@ -274,15 +288,18 @@ export class ChatService {
 
       const message = await prisma.chatMessage.create({
         data: {
+          id: crypto.randomUUID(),
           chatRoomId,
           senderId,
           content,
           type,
           fileUrl,
-          fileName
+          fileName,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         include: {
-          sender: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -342,7 +359,7 @@ export class ChatService {
           isDeleted: false
         },
         include: {
-          sender: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -351,7 +368,7 @@ export class ChatService {
               role: true
             }
           },
-          readBy: {
+          ChatMessageRead: {
             where: { userId },
             select: { readAt: true }
           }
@@ -374,7 +391,7 @@ export class ChatService {
       const whereClause: any = {
         chatRoomId,
         senderId: { not: userId },
-        readBy: {
+        ChatMessageRead: {
           none: { userId }
         }
       };
@@ -391,6 +408,7 @@ export class ChatService {
       if (unreadMessages.length > 0) {
         await prisma.chatMessageRead.createMany({
           data: unreadMessages.map(msg => ({
+            id: crypto.randomUUID(),
             messageId: msg.id,
             userId
           })),
@@ -434,6 +452,7 @@ export class ChatService {
       // Adaugă membrii noi
       const newMembers = await prisma.chatRoomMember.createMany({
         data: memberIds.map(userId => ({
+          id: crypto.randomUUID(),
           chatRoomId,
           userId,
           role: 'MEMBER'
@@ -511,20 +530,20 @@ export class ChatService {
       const existingDirectChats = await prisma.chatRoom.findMany({
         where: {
           type: 'DIRECT',
-          members: {
+          ChatRoomMember: {
             some: { userId }
           }
         },
         include: {
-          members: {
+          ChatRoomMember: {
             where: { userId: { not: userId } },
             select: { userId: true }
           }
         }
       });
 
-      const existingChatUserIds = existingDirectChats.flatMap(chat => 
-        chat.members.map(member => member.userId)
+      const existingChatUserIds = existingDirectChats.flatMap((chat: any) => 
+        chat.ChatRoomMember.map((member: any) => member.userId)
       );
 
       // Obține utilizatorii fără chat direct existent
@@ -577,7 +596,7 @@ export class ChatService {
           editedAt: new Date()
         },
         include: {
-          sender: {
+          User: {
             select: {
               id: true,
               name: true,

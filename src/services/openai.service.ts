@@ -98,8 +98,7 @@ class OpenAIService {
           where: { userId },
           include: {
             orderItems: {
-              include: {
-                dataItem: true,
+              include: { dataItem: true,
               },
             },
           },
@@ -845,8 +844,8 @@ Sau contactează-ne direct:
         }),
         prisma.category.findMany({ 
           take: 20,
-          include: {
-            subcategories: true,
+          include: { 
+            Category: true,
           }
         }),
         prisma.offer.findMany({
@@ -1117,13 +1116,43 @@ Sau contactează-ne direct:
     }
 
     try {
+      // Detect language from user messages
+      const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user');
+      let detectedLanguage = 'ro'; // default Romanian
+      
+      if (lastUserMessage) {
+        const content = lastUserMessage.content.toLowerCase();
+        // Simple language detection
+        if (content.match(/\b(hello|hi|help|product|order|payment|delivery)\b/i)) {
+          detectedLanguage = 'en';
+        } else if (content.match(/\b(ciao|aiuto|prodotto|ordine|pagamento|consegna)\b/i)) {
+          detectedLanguage = 'it';
+        } else if (content.match(/\b(hallo|hilfe|produkt|bestellung|zahlung|lieferung)\b/i)) {
+          detectedLanguage = 'de';
+        } else if (content.match(/\b(hola|ayuda|producto|pedido|pago|entrega)\b/i)) {
+          detectedLanguage = 'es';
+        } else if (content.match(/\b(bonjour|aide|produit|commande|paiement|livraison)\b/i)) {
+          detectedLanguage = 'fr';
+        }
+      }
+
+      // Language-specific instructions
+      const languageInstructions: Record<string, string> = {
+        ro: 'Răspunde ÎNTOTDEAUNA în limba română.',
+        en: 'ALWAYS respond in English.',
+        it: 'Rispondi SEMPRE in italiano.',
+        de: 'Antworte IMMER auf Deutsch.',
+        es: 'Responde SIEMPRE en español.',
+        fr: 'Répondez TOUJOURS en français.'
+      };
+
       // Get real-time platform data
       const platformContext = await this.getPlatformContext();
 
       // Add system message with comprehensive instructions
       const systemMessage: ChatMessage = {
         role: 'system',
-        content: `Ești un asistent virtual EXPERT pentru magazinul online Full Stack E-Commerce App. Răspunde ÎNTOTDEAUNA în limba română.
+        content: `Ești un asistent virtual EXPERT pentru magazinul online Full Stack E-Commerce App. ${languageInstructions[detectedLanguage]}
 
 📍 INFORMAȚII CONTACT:
 - Nume: Full Stack E-Commerce Shop
@@ -1143,7 +1172,7 @@ ${platformContext}
 5. Pentru VOUCHERE, explică cum se aplică și menționează /vouchers
 6. Pentru PRODUSE, sugerează /shop sau categoriile specifice
 7. Dacă există BLOCĂRI COMENZI active, explică motivul și când se ridică
-8. Site-ul are TRADUCERI (română/engleză) - menționează dacă e relevant
+8. Site-ul are TRADUCERI (română/engleză/italiană/germană/spaniolă/franceză) - răspunde în limba utilizatorului
 9. Carousel-ul afișează produse featured/recomandate selectate de admin
 10. Schimbul valutar se actualizează automat - prețurile se afișează în moneda selectată
 

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -34,9 +35,12 @@ export class TestCardService {
 
     return await prisma.testCard.create({
       data: {
+        id: crypto.randomUUID(),
         ...cardData,
         balance: cardData.balance || 1000,
         createdBy: adminId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
   }
@@ -55,7 +59,7 @@ export class TestCardService {
     return await prisma.testCard.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        transactions: {
+        CardTransaction: {
           take: 5,
           orderBy: { createdAt: 'desc' }
         }
@@ -123,6 +127,7 @@ export class TestCardService {
     // Creează tranzacția
     const transaction = await prisma.cardTransaction.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
         testCardId: card.id,
         orderId,
@@ -131,7 +136,8 @@ export class TestCardService {
         status: 'COMPLETED',
         cardLast4: card.cardNumber.slice(-4),
         cardType: card.cardType,
-        description: `Plată comandă #${orderId.slice(0, 8)}`
+        description: `Plată comandă #${orderId.slice(0, 8)}`,
+        createdAt: new Date(),
       }
     });
 
@@ -142,10 +148,10 @@ export class TestCardService {
   async refundTestCardPayment(orderId: string) {
     const transaction = await prisma.cardTransaction.findUnique({
       where: { orderId },
-      include: { testCard: true }
+      include: { TestCard: true }
     });
 
-    if (!transaction || !transaction.testCard) {
+    if (!transaction || !transaction.TestCard) {
       throw new Error('Tranzacția nu a fost găsită');
     }
 
@@ -155,8 +161,8 @@ export class TestCardService {
 
     // Returnează suma în card
     await prisma.testCard.update({
-      where: { id: transaction.testCard.id },
-      data: { balance: transaction.testCard.balance + transaction.amount }
+      where: { id: transaction.TestCard.id },
+      data: { balance: transaction.TestCard.balance + transaction.amount }
     });
 
     // Marchează tranzacția ca returnată
@@ -292,13 +298,16 @@ export class TestCardService {
     // Salvează doar ultimele 4 cifre pentru utilizator
     const savedCard = await prisma.savedCard.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
         cardNumber: testCard.cardNumber.slice(-4),
         cardHolder: testCard.cardHolder,
         expiryMonth: testCard.expiryMonth,
         expiryYear: testCard.expiryYear,
         cardType: testCard.cardType,
-        isDefault: false
+        isDefault: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
 

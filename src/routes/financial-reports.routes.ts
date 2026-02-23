@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { adminMiddleware } from '../middleware/admin.middleware';
@@ -56,6 +57,7 @@ export async function financialReportsRoutes(fastify: FastifyInstance) {
 
         const transaction = await prisma.transaction.create({
           data: {
+            id: crypto.randomUUID(),
             name,
             amount: type === 'EXPENSE' ? -Math.abs(amount) : Math.abs(amount),
             type,
@@ -65,7 +67,9 @@ export async function financialReportsRoutes(fastify: FastifyInstance) {
             paymentMethod,
             isRecurring: isRecurring || false,
             recurringPeriod,
-            createdById: user.userId // Changed from user.id to user.userId
+            createdById: user.userId, // Changed from user.id to user.userId
+            createdAt: new Date(),
+            updatedAt: new Date(),
           }
         });
 

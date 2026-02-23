@@ -27,11 +27,10 @@ export async function offerRoutes(fastify: FastifyInstance) {
       const offer = await prisma.offer.findUnique({
         where: { id },
         include: {
-          products: {
+          ProductOffer: {
             include: {
-              dataItem: {
-                include: {
-                  category: true,
+              DataItem: {
+                include: { category: true,
                 },
               },
             },
@@ -45,17 +44,16 @@ export async function offerRoutes(fastify: FastifyInstance) {
       }
 
       console.log('Offer found:', offer.title);
-      console.log('Number of linked products:', offer.products.length);
+      console.log('Number of linked products:', offer.ProductOffer.length);
 
       // If no specific products, return all products with matching discount
-      if (offer.products.length === 0) {
+      if (offer.ProductOffer.length === 0) {
         console.log('No specific products, searching by discount:', offer.discount);
         const allProducts = await prisma.dataItem.findMany({
           where: {
             status: 'published',
           },
-          include: {
-            category: true,
+          include: { category: true,
           },
         });
         
@@ -77,10 +75,10 @@ export async function offerRoutes(fastify: FastifyInstance) {
       }
 
       // Return specific products
-      console.log('Returning specific products:', offer.products.length);
+      console.log('Returning specific products:', offer.ProductOffer.length);
       reply.send({
         offer,
-        products: offer.products.map(p => p.dataItem),
+        products: offer.ProductOffer.map((p: any) => p.DataItem),
       });
     } catch (error) {
       console.error('Failed to get offer products:', error);

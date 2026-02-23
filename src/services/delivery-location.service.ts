@@ -1,14 +1,14 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { realtimeService } from './realtime.service';
 
 const prisma = new PrismaClient();
 
 export class DeliveryLocationService {
-  // Obține toate locațiile de livrare
   async getAllLocations() {
     return await prisma.deliveryLocation.findMany({
       include: {
-        deliveryMethod: true
+        DeliverySettings: true
       },
       orderBy: [
         { isMainLocation: 'desc' },
@@ -23,7 +23,7 @@ export class DeliveryLocationService {
     return await prisma.deliveryLocation.findMany({
       where: { isActive: true },
       include: {
-        deliveryMethod: true
+        DeliverySettings: true
       },
       orderBy: [
         { isMainLocation: 'desc' },
@@ -37,8 +37,8 @@ export class DeliveryLocationService {
     return await prisma.deliveryLocation.findUnique({
       where: { id },
       include: {
-        deliveryMethod: true,
-        orders: {
+        DeliverySettings: true,
+        Order: {
           take: 10,
           orderBy: { createdAt: 'desc' },
           select: {
@@ -78,10 +78,13 @@ export class DeliveryLocationService {
   }) {
     const location = await prisma.deliveryLocation.create({
       data: {
+        id: crypto.randomUUID(),
         ...data,
         coordinates: data.coordinates ? JSON.stringify(data.coordinates) : null,
         workingHours: data.workingHours ? JSON.stringify(data.workingHours) : null,
-        country: data.country || 'România'
+        country: data.country || 'România',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
 

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { realtimeService } from './realtime.service';
 
@@ -61,12 +62,14 @@ export class SiteConfigService {
         updatedAt: new Date()
       },
       create: {
+        id: crypto.randomUUID(),
         key,
         value: stringValue,
         type: options.type || 'text',
         description: options.description,
         isPublic: options.isPublic || false,
-        updatedById: options.updatedById
+        updatedById: options.updatedById,
+        updatedAt: new Date(),
       }
     });
 
@@ -125,12 +128,14 @@ export class SiteConfigService {
           updatedAt: new Date()
         },
         create: {
+          id: crypto.randomUUID(),
           key: config.key,
           value: this.stringifyConfigValue(config.value, config.type || 'text'),
           type: config.type || 'text',
           description: config.description,
           isPublic: config.isPublic || false,
-          updatedById
+          updatedById,
+          updatedAt: new Date(),
         }
       })
     );

@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+﻿﻿import { PrismaClient } from '@prisma/client';
 import { realtimeService } from './realtime.service';
 
 const prisma = new PrismaClient();
 
-// Mock storage pentru setările de blocare (în producție ar fi în baza de date)
+// Mock storage pentru setÄrile de blocare (Ă®n producČ›ie ar fi Ă®n baza de date)
 let orderBlockSettings = {
   blockNewOrders: false,
   blockReason: '',
@@ -14,10 +14,10 @@ let orderBlockSettings = {
 };
 
 export class OrderService {
-  // Obține setările de blocare comenzi
+  // ObČ›ine setÄrile de blocare comenzi
   async getOrderBlockSettings() {
     try {
-      // Încearcă să obții din baza de date
+      // ĂŽncearcÄ sÄ obČ›ii din baza de date
       const config = await prisma.siteConfig.findUnique({
         where: { key: 'order_block_settings' }
       });
@@ -29,32 +29,35 @@ export class OrderService {
       console.error('Error loading order block settings from DB:', error);
     }
     
-    // Returnează valorile implicite dacă nu există în DB
+    // ReturneazÄ valorile implicite dacÄ nu existÄ Ă®n DB
     return orderBlockSettings;
   }
 
-  // Actualizează setările de blocare comenzi
+  // ActualizeazÄ setÄrile de blocare comenzi
   async updateOrderBlockSettings(settings: typeof orderBlockSettings) {
-    try {
-      // Salvează în baza de date
-      await prisma.siteConfig.upsert({
-        where: { key: 'order_block_settings' },
-        update: { value: JSON.stringify(settings) },
-        create: { 
-          key: 'order_block_settings', 
-          value: JSON.stringify(settings),
-          description: 'Order blocking settings'
-        }
-      });
-      
-      // Actualizează și în memorie pentru performanță
-      orderBlockSettings = { ...settings };
-      return orderBlockSettings;
-    } catch (error) {
-      console.error('Error saving order block settings to DB:', error);
-      throw error;
+      try {
+        // Salvează în baza de date
+        await prisma.siteConfig.upsert({
+          where: { key: 'order_block_settings' },
+          update: { value: JSON.stringify(settings), updatedAt: new Date() },
+          create: { 
+            id: crypto.randomUUID(),
+            key: 'order_block_settings', 
+            value: JSON.stringify(settings),
+            description: 'Order blocking settings',
+            updatedAt: new Date(),
+          }
+        });
+
+        // Actualizează și în memorie pentru performanță
+        orderBlockSettings = { ...settings };
+        return orderBlockSettings;
+      } catch (error) {
+        console.error('Error saving order block settings to DB:', error);
+        throw error;
+      }
     }
-  }
+
 
   async createOrder(userId: string, data: {
     items: Array<{ dataItemId: string; quantity: number; price: number; isGift?: boolean; giftRuleId?: string }>;
@@ -71,33 +74,33 @@ export class OrderService {
     orderTimezone?: string;
   }) {
     // === VERIFICARE BLOCARE COMENZI ===
-    // Verifică dacă comenzile sunt blocate
+    // VerificÄ dacÄ comenzile sunt blocate
     const blockSettings = await this.getOrderBlockSettings();
     
     if (blockSettings.blockNewOrders) {
-      // Verifică dacă blocarea este temporară și a expirat
+      // VerificÄ dacÄ blocarea este temporarÄ Č™i a expirat
       if (blockSettings.blockUntil) {
         const blockUntilDate = new Date(blockSettings.blockUntil);
         if (new Date() < blockUntilDate) {
-          throw new Error(`Comenzile sunt blocate temporar. Motiv: ${blockSettings.blockReason || 'Indisponibil temporar'}. Comenzile vor fi disponibile după ${blockUntilDate.toLocaleString('ro-RO')}`);
+          throw new Error(`Comenzile sunt blocate temporar. Motiv: ${blockSettings.blockReason || 'Indisponibil temporar'}. Comenzile vor fi disponibile dupÄ ${blockUntilDate.toLocaleString('ro-RO')}`);
         }
       } else {
-        // Blocare permanentă
+        // Blocare permanentÄ
         throw new Error(`Comenzile sunt blocate momentan. Motiv: ${blockSettings.blockReason || 'Indisponibil temporar'}`);
       }
     }
 
-    // Verifică valoarea minimă a comenzii
+    // VerificÄ valoarea minimÄ a comenzii
     if (data.total < blockSettings.minimumOrderValue) {
-      throw new Error(`Valoarea minimă a comenzii este ${blockSettings.minimumOrderValue} RON. Valoarea ta: ${data.total} RON`);
+      throw new Error(`Valoarea minimÄ a comenzii este ${blockSettings.minimumOrderValue} RON. Valoarea ta: ${data.total} RON`);
     }
 
-    // Verifică valoarea maximă a comenzii (dacă este setată)
+    // VerificÄ valoarea maximÄ a comenzii (dacÄ este setatÄ)
     if (blockSettings.maximumOrderValue && data.total > blockSettings.maximumOrderValue) {
-      throw new Error(`Valoarea maximă a comenzii este ${blockSettings.maximumOrderValue} RON. Valoarea ta: ${data.total} RON`);
+      throw new Error(`Valoarea maximÄ a comenzii este ${blockSettings.maximumOrderValue} RON. Valoarea ta: ${data.total} RON`);
     }
 
-    // Verifică metoda de plată
+    // VerificÄ metoda de platÄ
     if (data.paymentMethod && !blockSettings.allowedPaymentMethods.includes(data.paymentMethod)) {
       const allowedMethods = blockSettings.allowedPaymentMethods.map((m: string) => {
         switch(m) {
@@ -108,17 +111,17 @@ export class OrderService {
           default: return m;
         }
       }).join(', ');
-      throw new Error(`Metoda de plată "${data.paymentMethod}" nu este disponibilă. Metode permise: ${allowedMethods}`);
+      throw new Error(`Metoda de platÄ "${data.paymentMethod}" nu este disponibilÄ. Metode permise: ${allowedMethods}`);
     }
 
     // === VALIDARE CADOURI ===
-    // Separă produsele normale de cadouri
+    // SeparÄ produsele normale de cadouri
     const giftItems = data.items.filter(item => item.isGift);
     const regularItems = data.items.filter(item => !item.isGift);
 
-    // Validează cadourile dacă există
+    // ValideazÄ cadourile dacÄ existÄ
     if (giftItems.length > 0) {
-      // Construiește cartItems pentru validare
+      // ConstruieČ™te cartItems pentru validare
       const cartItemsForValidation = await Promise.all(
         data.items.map(async (item) => {
           const product = await prisma.dataItem.findUnique({
@@ -142,7 +145,7 @@ export class OrderService {
             quantity: item.quantity,
             isGift: item.isGift || false,
             giftRuleId: item.giftRuleId || null,
-            product: {
+            dataItem: {
               id: product.id,
               title: product.title,
               price: product.price,
@@ -153,10 +156,10 @@ export class OrderService {
         })
       );
 
-      // Importă giftValidator
+      // ImportÄ giftValidator
       const { giftValidator } = await import('./gift-validator.service');
       
-      // Validează toate cadourile
+      // ValideazÄ toate cadourile
       const validation = await giftValidator.validateGiftsInOrder(
         userId,
         cartItemsForValidation
@@ -169,7 +172,7 @@ export class OrderService {
 
     // Use transaction to ensure stock is updated atomically
     return await prisma.$transaction(async (tx) => {
-      // Verificare și rezervare stoc pentru fiecare produs
+      // Verificare Č™i rezervare stoc pentru fiecare produs
       for (const item of data.items) {
         const product = await tx.dataItem.findUnique({
           where: { id: item.dataItemId },
@@ -179,13 +182,13 @@ export class OrderService {
           throw new Error(`Product ${item.dataItemId} not found`);
         }
 
-        // Verifică stocul disponibil (nu rezervat)
+        // VerificÄ stocul disponibil (nu rezervat)
         const availableStock = product.availableStock || product.stock;
         if (availableStock < item.quantity) {
           throw new Error(`Insufficient stock for ${product.title}. Available: ${availableStock}, Requested: ${item.quantity}`);
         }
 
-        // Rezervă stocul (nu îl scade încă)
+        // RezervÄ stocul (nu Ă®l scade Ă®ncÄ)
         await tx.dataItem.update({
           where: { id: item.dataItemId },
           data: {
@@ -215,6 +218,7 @@ export class OrderService {
       // Create the order
       const order = await tx.order.create({
         data: {
+          id: crypto.randomUUID(),
           userId,
           total: data.total,
           shippingAddress: data.shippingAddress,
@@ -222,38 +226,41 @@ export class OrderService {
           deliveryName: data.deliveryName,
           paymentMethod: data.paymentMethod || 'cash',
           deliveryMethod: data.deliveryMethod || 'courier',
-          deliveryLocationId: data.deliveryLocationId, // Salvează ID-ul locației de livrare
+          deliveryLocationId: data.deliveryLocationId, // SalveazÄ ID-ul locaČ›iei de livrare
           status: 'PROCESSING',
           orderLocalTime: data.orderLocalTime,
           orderLocation: data.orderLocation,
           orderTimezone: data.orderTimezone,
+          createdAt: new Date(),
+          updatedAt: new Date(),
           orderItems: {
             create: data.items.map(item => ({
+              id: crypto.randomUUID(),
               dataItemId: item.dataItemId,
               quantity: item.quantity,
-              price: item.isGift ? 0 : item.price, // Cadourile au preț 0
+              price: item.isGift ? 0 : item.price, // Cadourile au preČ› 0
               isGift: item.isGift || false,
               giftRuleId: item.giftRuleId || null,
-              originalPrice: item.price, // Salvează prețul original pentru raportare
+              originalPrice: item.price, // SalveazÄ preČ›ul original pentru raportare
             })),
           },
         },
         include: {
           orderItems: {
-            include: {
-              dataItem: true,
+            include: { dataItem: true,
             },
           },
         },
       });
 
       // === PROCESARE CADOURI ===
-      // Pentru fiecare cadou, creează înregistrare în GiftRuleUsage și incrementează currentTotalUses
+      // Pentru fiecare cadou, creeazÄ Ă®nregistrare Ă®n GiftRuleUsage Č™i incrementeazÄ currentTotalUses
       for (const item of data.items) {
         if (item.isGift && item.giftRuleId) {
-          // Creează înregistrare de utilizare
+          // CreeazÄ Ă®nregistrare de utilizare
           await tx.giftRuleUsage.create({
             data: {
+              id: crypto.randomUUID(),
               giftRuleId: item.giftRuleId,
               userId,
               orderId: order.id,
@@ -261,7 +268,7 @@ export class OrderService {
             },
           });
 
-          // Incrementează contorul de utilizări totale
+          // IncrementeazÄ contorul de utilizÄri totale
           await tx.giftRule.update({
             where: { id: item.giftRuleId },
             data: {
@@ -275,10 +282,12 @@ export class OrderService {
       if (voucherId) {
         await tx.userVoucher.create({
           data: {
+            id: crypto.randomUUID(),
             userId,
             voucherId,
             orderId: order.id,
             usedAt: new Date(),
+            createdAt: new Date(),
           },
         });
       }
@@ -303,10 +312,9 @@ export class OrderService {
         where: { id: orderId },
         include: {
           orderItems: {
-            include: {
-              dataItem: true,
-            },
+            include: { dataItem: true },
           },
+          DeliveryLocation: true,
         },
       });
 
@@ -314,10 +322,10 @@ export class OrderService {
         throw new Error('Order not found');
       }
 
-      // Salvează statusul anterior pentru a gestiona corect tranziția
+      // SalveazÄ statusul anterior pentru a gestiona corect tranziČ›ia
       const previousStatus = order.status;
 
-      console.log(`🔄 Updating order ${orderId} from ${previousStatus} to ${status}`);
+      console.log(`đź”„ Updating order ${orderId} from ${previousStatus} to ${status}`);
 
       // Update order status
       const updatedOrder = await tx.order.update({
@@ -325,23 +333,22 @@ export class OrderService {
         data: { status },
         include: {
           orderItems: {
-            include: {
-              dataItem: true,
+            include: { dataItem: true,
             },
           },
         },
       });
 
       // Handle stock based on status change
-      // Cazul 1: Tranziție către DELIVERED (din orice alt status)
+      // Cazul 1: TranziČ›ie cÄtre DELIVERED (din orice alt status)
       if (status === 'DELIVERED' && previousStatus !== 'DELIVERED') {
-        console.log(`📦 Processing DELIVERED status change from ${previousStatus}`);
+        console.log(`đź“¦ Processing DELIVERED status change from ${previousStatus}`);
         // Finalize stock reduction - move from reserved to sold
         for (const item of order.orderItems) {
           console.log(`  Product: ${item.dataItem.title}, Quantity: ${item.quantity}`);
-          // Dacă comanda era CANCELLED, stocul nu era rezervat, deci scădem direct din stock și availableStock
+          // DacÄ comanda era CANCELLED, stocul nu era rezervat, deci scÄdem direct din stock Č™i availableStock
           if (previousStatus === 'CANCELLED') {
-            console.log(`  ⚠️  Was CANCELLED - decrementing stock and availableStock`);
+            console.log(`  âš ď¸Ź  Was CANCELLED - decrementing stock and availableStock`);
             await tx.dataItem.update({
               where: { id: item.dataItemId },
               data: {
@@ -351,27 +358,27 @@ export class OrderService {
               },
             });
           } else {
-            console.log(`  ℹ️  Was ${previousStatus} - decrementing stock and reservedStock`);
+            console.log(`  â„ąď¸Ź  Was ${previousStatus} - decrementing stock and reservedStock`);
             
-            // Verificăm stocul rezervat înainte de decrement
+            // VerificÄm stocul rezervat Ă®nainte de decrement
             const currentProduct = await tx.dataItem.findUnique({
               where: { id: item.dataItemId },
               select: { reservedStock: true, stock: true, title: true }
             });
             
             if (currentProduct && currentProduct.reservedStock < item.quantity) {
-              console.warn(`⚠️  Warning: Reserved stock (${currentProduct.reservedStock}) is less than quantity (${item.quantity}) for ${currentProduct.title}`);
-              // Corectăm: setăm reservedStock la 0 în loc să decrementăm
+              console.warn(`âš ď¸Ź  Warning: Reserved stock (${currentProduct.reservedStock}) is less than quantity (${item.quantity}) for ${currentProduct.title}`);
+              // CorectÄm: setÄm reservedStock la 0 Ă®n loc sÄ decrementÄm
               await tx.dataItem.update({
                 where: { id: item.dataItemId },
                 data: {
                   stock: { decrement: item.quantity },
-                  reservedStock: 0, // Resetăm la 0 în loc de decrement
+                  reservedStock: 0, // ResetÄm la 0 Ă®n loc de decrement
                   totalSold: { increment: item.quantity },
                 },
               });
             } else {
-              // Altfel, scădem din stock și din reservedStock (availableStock deja scăzut)
+              // Altfel, scÄdem din stock Č™i din reservedStock (availableStock deja scÄzut)
               await tx.dataItem.update({
                 where: { id: item.dataItemId },
                 data: {
@@ -386,11 +393,13 @@ export class OrderService {
           // Create stock movement record
           await tx.stockMovement.create({
             data: {
+              id: crypto.randomUUID(),
               dataItemId: item.dataItemId,
               type: 'OUT',
               quantity: item.quantity,
               reason: `Order delivered #${orderId.slice(-6)}`,
               orderId: orderId,
+              createdAt: new Date(),
             },
           });
 
@@ -422,8 +431,8 @@ export class OrderService {
           }
         }
       } else if (status === 'CANCELLED' && previousStatus !== 'CANCELLED') {
-        // Cazul 2: Tranziție către CANCELLED
-        // Dacă comanda era DELIVERED, trebuie să adăugăm înapoi în stock
+        // Cazul 2: TranziČ›ie cÄtre CANCELLED
+        // DacÄ comanda era DELIVERED, trebuie sÄ adÄugÄm Ă®napoi Ă®n stock
         if (previousStatus === 'DELIVERED') {
           for (const item of order.orderItems) {
             await tx.dataItem.update({
@@ -438,11 +447,13 @@ export class OrderService {
             // Create stock movement record
             await tx.stockMovement.create({
               data: {
+                id: crypto.randomUUID(),
                 dataItemId: item.dataItemId,
                 type: 'RELEASED',
                 quantity: item.quantity,
                 reason: `Order cancelled (was delivered) #${orderId.slice(-6)}`,
                 orderId: orderId,
+                createdAt: new Date(),
               },
             });
 
@@ -474,22 +485,22 @@ export class OrderService {
             }
           }
         } else {
-          // Dacă comanda era în alt status (PROCESSING, etc.), doar eliberăm stocul rezervat
+          // DacÄ comanda era Ă®n alt status (PROCESSING, etc.), doar eliberÄm stocul rezervat
           for (const item of order.orderItems) {
-            // Verificăm stocul rezervat înainte de decrement
+            // VerificÄm stocul rezervat Ă®nainte de decrement
             const currentProduct = await tx.dataItem.findUnique({
               where: { id: item.dataItemId },
               select: { reservedStock: true, availableStock: true, title: true }
             });
             
             if (currentProduct && currentProduct.reservedStock < item.quantity) {
-              console.warn(`⚠️  Warning: Reserved stock (${currentProduct.reservedStock}) is less than quantity (${item.quantity}) for ${currentProduct.title}`);
-              // Corectăm: setăm reservedStock la 0 și ajustăm availableStock
+              console.warn(`âš ď¸Ź  Warning: Reserved stock (${currentProduct.reservedStock}) is less than quantity (${item.quantity}) for ${currentProduct.title}`);
+              // CorectÄm: setÄm reservedStock la 0 Č™i ajustÄm availableStock
               await tx.dataItem.update({
                 where: { id: item.dataItemId },
                 data: {
                   reservedStock: 0,
-                  availableStock: { increment: currentProduct.reservedStock }, // Incrementăm doar cu cât era rezervat
+                  availableStock: { increment: currentProduct.reservedStock }, // IncrementÄm doar cu cĂ˘t era rezervat
                 },
               });
             } else {
@@ -505,11 +516,13 @@ export class OrderService {
             // Create stock movement record
             await tx.stockMovement.create({
               data: {
+                id: crypto.randomUUID(),
                 dataItemId: item.dataItemId,
                 type: 'RELEASED',
                 quantity: item.quantity,
                 reason: `Order cancelled #${orderId.slice(-6)}`,
                 orderId: orderId,
+                createdAt: new Date(),
               },
             });
 
@@ -542,8 +555,8 @@ export class OrderService {
           }
         }
       } else if (previousStatus === 'DELIVERED' && status !== 'DELIVERED' && status !== 'CANCELLED') {
-        // Cazul 3: Tranziție din DELIVERED către alt status (nu CANCELLED)
-        // Trebuie să adăugăm înapoi în stock și să rezervăm
+        // Cazul 3: TranziČ›ie din DELIVERED cÄtre alt status (nu CANCELLED)
+        // Trebuie sÄ adÄugÄm Ă®napoi Ă®n stock Č™i sÄ rezervÄm
         for (const item of order.orderItems) {
           await tx.dataItem.update({
             where: { id: item.dataItemId },
@@ -557,11 +570,13 @@ export class OrderService {
           // Create stock movement record
           await tx.stockMovement.create({
             data: {
+              id: crypto.randomUUID(),
               dataItemId: item.dataItemId,
               type: 'RELEASED',
               quantity: item.quantity,
               reason: `Order status changed from delivered #${orderId.slice(-6)}`,
               orderId: orderId,
+              createdAt: new Date(),
             },
           });
 
@@ -608,10 +623,9 @@ export class OrderService {
       where: { userId },
       include: {
         orderItems: {
-          include: {
-            dataItem: true,
-          },
+          include: { dataItem: true },
         },
+        DeliveryLocation: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -622,10 +636,9 @@ export class OrderService {
       where: { id: orderId, userId },
       include: {
         orderItems: {
-          include: {
-            dataItem: true,
-          },
+          include: { dataItem: true },
         },
+        DeliveryLocation: true,
       },
     });
   }
@@ -644,10 +657,9 @@ export class OrderService {
             select: { name: true, email: true },
           },
           orderItems: {
-            include: {
-              dataItem: true,
-            },
+            include: { dataItem: true },
           },
+          DeliveryLocation: true,
         },
         orderBy: { createdAt: 'desc' },
       }),

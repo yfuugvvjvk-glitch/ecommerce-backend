@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -17,8 +18,11 @@ export class VoucherService {
   }) {
     return await prisma.voucher.create({
       data: {
+        id: crypto.randomUUID(),
         ...data,
         code: data.code.toUpperCase(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   }
@@ -75,7 +79,7 @@ export class VoucherService {
   async getUserVouchers(userId: string) {
     return await prisma.userVoucher.findMany({
       where: { userId },
-      include: { voucher: true },
+      include: { Voucher: true },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -90,6 +94,7 @@ export class VoucherService {
   }) {
     return await prisma.voucherRequest.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
         code: data.code.toUpperCase(),
         discountType: data.discountType,
@@ -98,6 +103,8 @@ export class VoucherService {
         validUntil: data.validUntil,
         description: data.description,
         status: 'PENDING',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   }

@@ -123,6 +123,8 @@ export class VerificationService {
           codeHash,
           expiresAt,
           maxAttempts: 3,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
 
@@ -267,6 +269,8 @@ export class VerificationService {
           phone: pendingUser.phone,
           emailVerified: true,
           emailVerifiedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
 
@@ -355,6 +359,8 @@ export class VerificationService {
           codeHash,
           expiresAt,
           maxAttempts: 3,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
 
@@ -459,6 +465,8 @@ export class VerificationService {
           codeHash,
           expiresAt,
           maxAttempts: 3,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
 
@@ -679,6 +687,8 @@ export class VerificationService {
            codeHash,
            expiresAt,
            maxAttempts: 3,
+           createdAt: new Date(),
+           updatedAt: new Date(),
          },
        });
 

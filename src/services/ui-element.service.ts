@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -64,6 +65,7 @@ class UIElementService {
   async createElement(data: UIElementData) {
     return await prisma.uIElement.create({
       data: {
+        id: crypto.randomUUID(),
         type: data.type,
         label: data.label,
         icon: data.icon,
@@ -75,7 +77,9 @@ class UIElementService {
         isVisible: data.isVisible !== undefined ? data.isVisible : true,
         action: data.action,
         settings: data.settings,
-        createdById: data.createdById
+        createdById: data.createdById,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
   }

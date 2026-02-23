@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -19,13 +20,12 @@ export class InvoiceSimpleService {
       include: {
         user: true,
         orderItems: {
-          include: {
-            dataItem: true
+          include: { dataItem: true
           }
         },
-        deliveryLocation: {
+        DeliveryLocation: {
           include: {
-            deliveryMethod: true
+            DeliverySettings: true
           }
         }
       }
@@ -53,13 +53,12 @@ export class InvoiceSimpleService {
       include: {
         user: true,
         orderItems: {
-          include: {
-            dataItem: true
+          include: { dataItem: true
           }
         },
-        deliveryLocation: {
+        DeliveryLocation: {
           include: {
-            deliveryMethod: true
+            DeliverySettings: true
           }
         }
       }
@@ -79,13 +78,12 @@ export class InvoiceSimpleService {
       include: {
         user: true,
         orderItems: {
-          include: {
-            dataItem: true
+          include: { dataItem: true
           }
         },
-        deliveryLocation: {
+        DeliveryLocation: {
           include: {
-            deliveryMethod: true
+            DeliverySettings: true
           }
         }
       }
@@ -110,13 +108,12 @@ export class InvoiceSimpleService {
       include: {
         user: true,
         orderItems: {
-          include: {
-            dataItem: true
+          include: { dataItem: true
           }
         },
-        deliveryLocation: {
+        DeliveryLocation: {
           include: {
-            deliveryMethod: true
+            DeliverySettings: true
           }
         }
       }
@@ -146,8 +143,7 @@ export class InvoiceSimpleService {
       },
       include: {
         orderItems: {
-          include: {
-            dataItem: true
+          include: { dataItem: true
           }
         }
       },
@@ -253,29 +249,33 @@ export class InvoiceSimpleService {
     // DEBUG: Log pentru a vedea ce date avem
     console.log('🔍 DEBUG Invoice HTML Generation:');
     console.log('Order ID:', order.id);
-    console.log('deliveryMethod (string):', order.deliveryMethod);
+    console.log('paymentMethod:', order.paymentMethod);
+    console.log('deliveryMethod:', order.deliveryMethod);
     console.log('deliveryLocationId:', order.deliveryLocationId);
-    console.log('deliveryLocation:', order.deliveryLocation);
-    console.log('deliveryLocation?.deliveryMethod:', order.deliveryLocation?.deliveryMethod);
+    console.log('DeliveryLocation:', order.DeliveryLocation);
     
-    // Determină numele metodei de livrare
-    let deliveryMethodName = 'N/A';
-    if (order.deliveryLocation?.deliveryMethod?.name) {
-      deliveryMethodName = order.deliveryLocation.deliveryMethod.name;
-      console.log('✅ Folosim deliveryLocation.deliveryMethod.name:', deliveryMethodName);
+    // Determină numele locației de livrare
+    let deliveryLocationName = 'N/A';
+    if (order.DeliveryLocation?.name) {
+      deliveryLocationName = order.DeliveryLocation.name;
+      console.log('✅ Folosim DeliveryLocation.name:', deliveryLocationName);
     } else if (order.deliveryMethod) {
       // Fallback la valoarea din câmpul deliveryMethod
-      deliveryMethodName = order.deliveryMethod === 'courier' ? 'Curier' : 
-                          order.deliveryMethod === 'pickup' ? 'Ridicare Personală' : 
-                          order.deliveryMethod;
-      console.log('⚠️ Folosim fallback pentru deliveryMethod:', deliveryMethodName);
+      deliveryLocationName = order.deliveryMethod === 'courier' ? 'Curier' : 
+                             order.deliveryMethod === 'pickup' ? 'Ridicare Personală' : 
+                             order.deliveryMethod;
+      console.log('⚠️ Folosim fallback pentru deliveryMethod:', deliveryLocationName);
     }
     
     // Determină numele metodei de plată
-    const paymentMethodName = order.paymentMethod === 'cash' ? 'Numerar' : 
-                             order.paymentMethod === 'card' ? 'Card' : 
-                             order.paymentMethod === 'transfer' ? 'Transfer' : 
-                             order.paymentMethod;
+    let paymentMethodName = 'N/A';
+    if (order.paymentMethod) {
+      paymentMethodName = order.paymentMethod === 'cash' ? 'Numerar' : 
+                         order.paymentMethod === 'card' ? 'Card' : 
+                         order.paymentMethod === 'transfer' ? 'Transfer Bancar' : 
+                         order.paymentMethod;
+      console.log('✅ Payment method:', paymentMethodName);
+    }
     
     return `
 <!DOCTYPE html>
@@ -340,7 +340,7 @@ export class InvoiceSimpleService {
       <h3>Detalii comandă:</h3>
       <p><strong>ID:</strong> ${order.id.slice(0, 8)}</p>
       <p><strong>Plată:</strong> ${paymentMethodName}</p>
-      <p><strong>Livrare:</strong> ${deliveryMethodName}</p>
+      <p><strong>Livrare:</strong> ${deliveryLocationName}</p>
       ${order.orderLocalTime ? `<p><strong>Timp plasare:</strong> ${order.orderLocalTime}</p>` : ''}
       ${order.orderLocation ? `<p><strong>Locație:</strong> ${order.orderLocation}</p>` : ''}
     </div>
@@ -395,8 +395,7 @@ export class InvoiceSimpleService {
       include: {
         user: true,
         orderItems: {
-          include: {
-            dataItem: true,
+          include: { dataItem: true,
           },
         },
       },
@@ -409,6 +408,7 @@ export class InvoiceSimpleService {
     // Creează o nouă comandă identică
     const newOrder = await prisma.order.create({
       data: {
+        id: crypto.randomUUID(),
         userId: existingOrder.userId,
         total: existingOrder.total,
         shippingAddress: existingOrder.shippingAddress,
@@ -422,8 +422,11 @@ export class InvoiceSimpleService {
         orderTimezone: existingOrder.orderTimezone,
         invoiceGenerated: true,
         invoiceNumber: `${existingOrder.invoiceNumber}-DUP-${Date.now()}`, // Număr duplicat
+        createdAt: new Date(),
+        updatedAt: new Date(),
         orderItems: {
-          create: existingOrder.orderItems.map(item => ({
+          create: existingOrder.orderItems.map((item: any) => ({
+            id: crypto.randomUUID(),
             dataItemId: item.dataItemId,
             quantity: item.quantity,
             price: item.price,
@@ -433,8 +436,7 @@ export class InvoiceSimpleService {
       include: {
         user: true,
         orderItems: {
-          include: {
-            dataItem: true,
+          include: { dataItem: true,
           },
         },
       },

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { externalTranslationService, Locale } from './external-translation.service';
 
@@ -196,6 +197,7 @@ export class TranslationService {
         updatedAt: new Date(),
       },
       create: {
+        id: crypto.randomUUID(),
         entityType,
         entityId,
         field,
@@ -203,6 +205,8 @@ export class TranslationService {
         value,
         isAutomatic,
         status: isAutomatic ? 'automatic' : 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   }

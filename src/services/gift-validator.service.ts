@@ -10,7 +10,7 @@ interface CartItemWithProduct {
   quantity: number;
   isGift: boolean;
   giftRuleId: string | null;
-  product: {
+  dataItem: {
     id: string;
     title: string;
     price: number;
@@ -45,17 +45,15 @@ class GiftValidatorService {
       const rule = await prisma.giftRule.findUnique({
         where: { id: giftRuleId },
         include: {
-          conditions: {
-            include: {
-              product: true,
-              category: true,
-              subConditions: true,
+          GiftCondition: {
+            include: { 
+              DataItem: true,
+              Category: true,
+              GiftCondition: true,
             },
           },
-          giftProducts: {
-            include: {
-              product: true,
-            },
+          GiftProduct: {
+            include: { DataItem: true },
           },
         },
       });
@@ -90,7 +88,7 @@ class GiftValidatorService {
       }
 
       // 3. Verifică că produsul face parte din cadourile regulii
-      const giftProduct = rule.giftProducts.find((gp) => gp.productId === productId);
+      const giftProduct = rule.GiftProduct.find((gp) => gp.productId === productId);
       if (!giftProduct) {
         return {
           isValid: false,
@@ -220,7 +218,7 @@ class GiftValidatorService {
     for (const giftItem of giftItems) {
       if (!giftItem.giftRuleId) {
         invalidGifts.push(giftItem.id);
-        errors.push(`Gift item ${giftItem.product.title} has no associated rule`);
+        errors.push(`Gift item ${giftItem.dataItem.title} has no associated rule`);
         continue;
       }
 
@@ -234,7 +232,7 @@ class GiftValidatorService {
 
       if (!validation.isValid) {
         invalidGifts.push(giftItem.id);
-        errors.push(`${giftItem.product.title}: ${validation.error}`);
+        errors.push(`${giftItem.dataItem.title}: ${validation.error}`);
       }
     }
 
@@ -255,7 +253,7 @@ class GiftValidatorService {
     // Calculează subtotal fără cadouri
     const subtotal = cartItems
       .filter((item) => !item.isGift)
-      .reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+      .reduce((sum, item) => sum + item.dataItem.price * item.quantity, 0);
 
     // Extrage ID-urile regulilor deja folosite
     const existingGiftRuleIds = cartItems
@@ -277,30 +275,20 @@ class GiftValidatorService {
     return {
       id: rule.id,
       name: rule.name,
-      nameEn: rule.nameEn,
-      nameFr: rule.nameFr,
-      nameDe: rule.nameDe,
-      nameEs: rule.nameEs,
-      nameIt: rule.nameIt,
       description: rule.description,
-      descriptionEn: rule.descriptionEn,
-      descriptionFr: rule.descriptionFr,
-      descriptionDe: rule.descriptionDe,
-      descriptionEs: rule.descriptionEs,
-      descriptionIt: rule.descriptionIt,
       isActive: rule.isActive,
       priority: rule.priority,
       conditionLogic: rule.conditionLogic,
-      conditions: this.transformConditions(rule.conditions),
-      giftProducts: rule.giftProducts.map((gp: any) => ({
+      conditions: this.transformConditions(rule.GiftCondition),
+      giftProducts: rule.GiftProduct.map((gp: any) => ({
         id: gp.id,
         productId: gp.productId,
-        product: {
-          id: gp.product.id,
-          title: gp.product.title,
-          image: gp.product.image,
-          price: gp.product.price,
-          stock: gp.product.stock,
+        dataItem: {
+          id: gp.DataItem.id,
+          title: gp.DataItem.title,
+          image: gp.DataItem.image,
+          price: gp.DataItem.price,
+          stock: gp.DataItem.stock,
         },
         maxQuantityPerOrder: gp.maxQuantityPerOrder,
         remainingStock: gp.remainingStock,

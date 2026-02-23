@@ -176,7 +176,7 @@ class FinancialReportService {
   async getTopProducts(startDate: Date, endDate: Date, limit: number = 10): Promise<ProductPerformance[]> {
     const orderItems = await prisma.orderItem.findMany({
       where: {
-        order: {
+        Order: {
           createdAt: {
             gte: startDate,
             lte: endDate
@@ -199,12 +199,12 @@ class FinancialReportService {
     // Grupează după produs
     const productMap = new Map<string, { name: string; totalSold: number; revenue: number; prices: number[] }>();
 
-    orderItems.forEach(item => {
+    orderItems.forEach((item: any) => {
       const existing = productMap.get(item.dataItemId) || {
         name: item.dataItem.title,
         totalSold: 0,
         revenue: 0,
-        prices: []
+        prices: [] as number[]
       };
 
       existing.totalSold += item.quantity;
@@ -307,27 +307,25 @@ class FinancialReportService {
         }
       },
       include: {
-        orderItems: {
+        OrderItem: {
           where: {
-            order: {
+            Order: {
               status: {
                 in: ['DELIVERED', 'PROCESSING', 'SHIPPED']
               }
             }
           }
         },
-        _count: {
-          select: {
-            reviews: true,
-            favorites: true
+        _count: { select: { reviews: true,
+            Favorite: true
           }
         }
       }
     });
 
-    return products.map(product => {
-      const totalSold = product.orderItems.reduce((sum, item) => sum + item.quantity, 0);
-      const revenue = product.orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return products.map((product: any) => {
+      const totalSold = product.OrderItem.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      const revenue = product.OrderItem.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
 
       return {
         id: product.id,
@@ -337,7 +335,7 @@ class FinancialReportService {
         totalSold,
         revenue,
         reviews: product._count.reviews,
-        favorites: product._count.favorites,
+        favorites: product._count.Favorite,
         rating: product.rating
       };
     });
@@ -350,7 +348,7 @@ class FinancialReportService {
     const users = await prisma.user.findMany({
       where: {
         role: 'user',
-        orders: {
+        Order: {
           some: {
             createdAt: {
               gte: startDate,
@@ -360,7 +358,7 @@ class FinancialReportService {
         }
       },
       include: {
-        orders: {
+        Order: {
           where: {
             createdAt: {
               gte: startDate,
@@ -379,11 +377,11 @@ class FinancialReportService {
     });
 
     return users.map(user => {
-      const totalSpent = user.orders.reduce((sum, order) => sum + order.total, 0);
-      const orderCount = user.orders.length;
+      const totalSpent = user.Order.reduce((sum: number, order: any) => sum + order.total, 0);
+      const orderCount = user.Order.length;
       const averageOrderValue = orderCount > 0 ? totalSpent / orderCount : 0;
-      const lastOrderDate = user.orders.length > 0 
-        ? user.orders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0].createdAt
+      const lastOrderDate = user.Order.length > 0 
+        ? user.Order.sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime())[0].createdAt
         : null;
 
       return {
@@ -404,11 +402,11 @@ class FinancialReportService {
 
     const categories = await prisma.category.findMany({
       include: {
-        dataItems: {
+        DataItem: {
           include: {
-            orderItems: {
+            OrderItem: {
               where: {
-                order: {
+                Order: {
                   createdAt: {
                     gte: startDate,
                     lte: endDate
@@ -425,12 +423,12 @@ class FinancialReportService {
     });
 
     return categories.map(category => {
-      const totalSold = category.dataItems.reduce((sum, product) => 
-        sum + product.orderItems.reduce((pSum, item) => pSum + item.quantity, 0), 0
+      const totalSold = category.DataItem.reduce((sum: number, product: any) => 
+        sum + product.OrderItem.reduce((pSum: number, item: any) => pSum + item.quantity, 0), 0
       );
       
-      const revenue = category.dataItems.reduce((sum, product) => 
-        sum + product.orderItems.reduce((pSum, item) => pSum + (item.price * item.quantity), 0), 0
+      const revenue = category.DataItem.reduce((sum: number, product: any) => 
+        sum + product.OrderItem.reduce((pSum: number, item: any) => pSum + (item.price * item.quantity), 0), 0
       );
 
       return {
@@ -438,7 +436,7 @@ class FinancialReportService {
         name: category.name,
         totalSold,
         revenue,
-        productCount: category.dataItems.length
+        productCount: category.DataItem.length
       };
     }).sort((a, b) => b.revenue - a.revenue);
   }

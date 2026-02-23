@@ -92,14 +92,17 @@ export async function cartRoutes(fastify: FastifyInstance) {
   // Evaluate gift rules for current cart
   fastify.post('/evaluate-gift-rules', { preHandler: authMiddleware }, async (request, reply) => {
     try {
+      console.log('🎁 Evaluating gift rules for user:', request.user!.userId);
       const eligibleRules = await cartService.getEligibleGifts(request.user!.userId);
+      console.log('✅ Gift rules evaluated successfully:', eligibleRules.length, 'rules');
       
       reply.send({
         success: true,
         eligibleRules,
       });
     } catch (error: any) {
-      console.error('Error evaluating gift rules:', error);
+      console.error('❌ Error evaluating gift rules:', error);
+      console.error('Stack trace:', error.stack);
       reply.code(500).send({
         success: false,
         error: {

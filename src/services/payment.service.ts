@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -47,8 +48,8 @@ export class PaymentService {
     for (const card of cards) {
       await prisma.fictiveCard.upsert({
         where: { cardNumber: card.cardNumber },
-        update: card,
-        create: card,
+        update: { ...card, updatedAt: new Date() },
+        create: { ...card, id: crypto.randomUUID(), createdAt: new Date(), updatedAt: new Date() },
       });
     }
 
@@ -129,6 +130,7 @@ export class PaymentService {
       // Creează tranzacția
       const cardTransaction = await tx.cardTransaction.create({
         data: {
+          id: crypto.randomUUID(),
           userId,
           fictiveCardId: fictiveCard.id,
           orderId,
@@ -136,6 +138,7 @@ export class PaymentService {
           type: 'PAYMENT',
           status: 'COMPLETED',
           description: `Plată comandă #${orderId.slice(0, 8)}`,
+          createdAt: new Date(),
         },
       });
 
@@ -154,7 +157,7 @@ export class PaymentService {
   async refundPayment(orderId: string, reason: string = 'Comandă anulată') {
     const originalTransaction = await prisma.cardTransaction.findUnique({
       where: { orderId },
-      include: { fictiveCard: true },
+      include: { FictiveCard: true },
     });
 
     if (!originalTransaction) {
@@ -180,9 +183,9 @@ export class PaymentService {
     // Procesează refund-ul
     const refund = await prisma.$transaction(async (tx) => {
       // Adaugă suma înapoi în card
-      if (originalTransaction.fictiveCard) {
+      if (originalTransaction.FictiveCard) {
         await tx.fictiveCard.update({
-          where: { id: originalTransaction.fictiveCard.id },
+          where: { id: originalTransaction.FictiveCard.id },
           data: { balance: { increment: originalTransaction.amount } },
         });
       }
@@ -190,6 +193,7 @@ export class PaymentService {
       // Creează tranzacția de refund
       const refundTransaction = await tx.cardTransaction.create({
         data: {
+          id: crypto.randomUUID(),
           userId: originalTransaction.userId,
           fictiveCardId: originalTransaction.fictiveCardId,
           orderId,
@@ -197,6 +201,7 @@ export class PaymentService {
           type: 'REFUND',
           status: 'COMPLETED',
           description: reason,
+          createdAt: new Date(),
         },
       });
 
@@ -227,12 +232,15 @@ export class PaymentService {
 
     const savedCard = await prisma.savedCard.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
         cardNumber: `****-****-****-${lastFourDigits}`,
         cardHolder: cardData.cardHolder,
         expiryMonth: cardData.expiryMonth,
         expiryYear: cardData.expiryYear,
         cardType,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
 
@@ -252,13 +260,13 @@ export class PaymentService {
     return await prisma.cardTransaction.findMany({
       where: { userId },
       include: {
-        fictiveCard: {
+        FictiveCard: {
           select: {
             cardNumber: true,
             cardType: true,
           },
         },
-        order: {
+        Order: {
           select: {
             id: true,
             total: true,

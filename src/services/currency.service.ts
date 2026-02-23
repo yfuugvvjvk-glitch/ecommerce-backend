@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 import axios from 'axios';
 
@@ -46,6 +47,7 @@ export class CurrencyService {
 
     return await prisma.currency.create({
       data: {
+        id: crypto.randomUUID(),
         code: data.code.toUpperCase(),
         name: data.name,
         symbol: data.symbol,
@@ -53,6 +55,8 @@ export class CurrencyService {
         isActive: data.isActive !== false,
         position: data.position || 'before',
         decimals: data.decimals || 2,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   }
@@ -137,8 +141,8 @@ export class CurrencyService {
         },
       },
       include: {
-        fromCurrency: true,
-        toCurrency: true,
+        Currency_ExchangeRate_fromCurrencyIdToCurrency: true,
+        Currency_ExchangeRate_toCurrencyIdToCurrency: true,
       },
     });
 
@@ -162,6 +166,7 @@ export class CurrencyService {
     // Salvează în istoric
     await prisma.exchangeRateHistory.create({
       data: {
+        id: crypto.randomUUID(),
         fromCurrency: fromCurrency.code,
         toCurrency: toCurrency.code,
         rate: data.rate,
@@ -182,14 +187,16 @@ export class CurrencyService {
         lastUpdated: new Date(),
       },
       create: {
+        id: crypto.randomUUID(),
         fromCurrencyId: fromCurrency.id,
         toCurrencyId: toCurrency.id,
         rate: data.rate,
         source: data.source || 'manual',
+        createdAt: new Date(),
       },
       include: {
-        fromCurrency: true,
-        toCurrency: true,
+        Currency_ExchangeRate_fromCurrencyIdToCurrency: true,
+        Currency_ExchangeRate_toCurrencyIdToCurrency: true,
       },
     });
   }
@@ -373,16 +380,26 @@ export class CurrencyService {
 
   // Obține toate cursurile de schimb
   async getAllExchangeRates() {
-    return await prisma.exchangeRate.findMany({
+    const rates = await prisma.exchangeRate.findMany({
       include: {
-        fromCurrency: true,
-        toCurrency: true,
+        Currency_ExchangeRate_fromCurrencyIdToCurrency: true,
+        Currency_ExchangeRate_toCurrencyIdToCurrency: true,
       },
       orderBy: [
-        { fromCurrency: { code: 'asc' } },
-        { toCurrency: { code: 'asc' } },
+        { Currency_ExchangeRate_fromCurrencyIdToCurrency: { code: 'asc' } },
+        { Currency_ExchangeRate_toCurrencyIdToCurrency: { code: 'asc' } },
       ],
     });
+
+    // Transform to match frontend expectations
+    return rates.map(rate => ({
+      id: rate.id,
+      rate: rate.rate,
+      source: rate.source,
+      lastUpdated: rate.lastUpdated,
+      fromCurrency: rate.Currency_ExchangeRate_fromCurrencyIdToCurrency,
+      toCurrency: rate.Currency_ExchangeRate_toCurrencyIdToCurrency,
+    }));
   }
 
   // Obține istoricul cursurilor

@@ -406,6 +406,62 @@ export async function publicRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // === VOUCHERE PUBLICE ===
+  
+  // Obține voucherele active (pentru afișare în pagina About)
+  fastify.get('/vouchers', async (request, reply) => {
+    try {
+      const { VoucherService } = await import('../services/voucher.service');
+      const voucherService = new VoucherService();
+      const vouchers = await voucherService.getAllVouchers();
+      
+      // Returnează doar voucherele active și publice
+      const publicVouchers = vouchers
+        .filter((v: any) => v.isActive)
+        .map((v: any) => ({
+          id: v.id,
+          code: v.code,
+          discountType: v.discountType,
+          discountValue: v.discountValue,
+          minPurchase: v.minPurchase,
+          validUntil: v.validUntil,
+          description: v.description,
+        }));
+
+      reply.send(publicVouchers);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error loading vouchers:', error);
+      reply.code(500).send({ error: errorMessage });
+    }
+  });
+
+  // === REGULI DE CADOU PUBLICE ===
+  
+  // Obține regulile de cadou active (pentru afișare în pagina About)
+  fastify.get('/gift-rules', async (request, reply) => {
+    try {
+      const { giftRuleService } = await import('../services/gift-rule.service');
+      const rules = await giftRuleService.getActiveRules();
+
+      // Returnează doar informații publice (fără detalii sensibile despre condiții)
+      const publicRules = rules.map((rule: any) => ({
+        id: rule.id,
+        name: rule.name,
+        description: rule.description,
+        priority: rule.priority,
+        validFrom: rule.validFrom,
+        validUntil: rule.validUntil,
+      }));
+
+      reply.send(publicRules);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error loading gift rules:', error);
+      reply.code(500).send({ error: errorMessage });
+    }
+  });
+
   // === REGULI DE BLOCARE PUBLICE ===
   
   // Obține regulile de blocare active (pentru verificare checkout)

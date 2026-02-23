@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { GiftRuleService, CreateGiftRuleInput } from '../../../services/gift-rule.service';
 import { PrismaClient } from '@prisma/client';
 
@@ -23,6 +24,7 @@ describe('GiftRuleService - Validation Unit Tests', () => {
 
     const testCategory = await prisma.category.create({
       data: {
+          id: crypto.randomUUID(),
         name: 'Test Category',
         slug: `test-category-${Date.now()}`,
       },

@@ -35,6 +35,7 @@ export class AuthService {
     // Create user
     const user = await prisma.user.create({
       data: {
+        id: require('crypto').randomUUID(),
         email,
         password: hashedPassword,
         name,
@@ -45,6 +46,8 @@ export class AuthService {
         streetNumber,
         addressDetails,
         role: 'user',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
 
@@ -159,6 +162,8 @@ export class AuthService {
           emailVerified: data.emailVerified || false,
           emailVerifiedAt: data.emailVerified ? new Date() : null,
           role: 'user',
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
 

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 
 export class AdminSettingsService {
@@ -59,9 +60,9 @@ export class AdminSettingsService {
           updatedAt: true,
           _count: {
             select: {
-              orders: true,
-              reviews: true,
-              favorites: true
+              Order: true,
+              Review: true,
+              Favorite: true
             }
           }
         },
@@ -96,7 +97,7 @@ export class AdminSettingsService {
           password: true, // Include password hash for admin password recovery assistance
           createdAt: true,
           updatedAt: true,
-          orders: {
+          Order: {
             take: 10,
             orderBy: { createdAt: 'desc' },
             select: {
@@ -106,20 +107,20 @@ export class AdminSettingsService {
               createdAt: true
             }
           },
-          reviews: {
+          Review: {
             take: 10,
             orderBy: { createdAt: 'desc' },
             include: {
-              dataItem: {
+              DataItem: {
                 select: { title: true }
               }
             }
           },
           _count: {
             select: {
-              orders: true,
-              reviews: true,
-              favorites: true
+              Order: true,
+              Review: true,
+              Favorite: true
             }
           }
         }
@@ -323,11 +324,11 @@ export class AdminSettingsService {
         skip,
         take: limit,
         include: {
-          createdBy: {
+          User: {
             select: { name: true, email: true }
           },
           _count: {
-            select: { userVouchers: true }
+            select: { UserVoucher: true }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -369,7 +370,12 @@ export class AdminSettingsService {
       };
       
       return await prisma.voucher.create({
-        data: cleanedData
+        data: {
+          id: crypto.randomUUID(),
+          ...cleanedData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
       });
     } catch (error) {
       console.error('Error creating voucher:', error);
@@ -429,7 +435,7 @@ export class AdminSettingsService {
     try {
       return await prisma.voucherRequest.findMany({
         include: {
-          user: {
+          User: {
             select: { name: true, email: true }
           }
         },
@@ -447,7 +453,7 @@ export class AdminSettingsService {
         where: { id: requestId },
         data: { status },
         include: {
-          user: {
+          User: {
             select: { name: true, email: true }
           }
         }
@@ -457,12 +463,15 @@ export class AdminSettingsService {
       if (status === 'APPROVED') {
         await prisma.voucher.create({
           data: {
+            id: crypto.randomUUID(),
             code: `REQ-${Date.now()}`,
             discountType: 'PERCENTAGE',
             discountValue: 10, // Default 10% discount
             maxUsage: 1,
             createdById: request.userId,
-            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            createdAt: new Date(),
+            updatedAt: new Date(),
           }
         });
       }
@@ -496,7 +505,7 @@ export class AdminSettingsService {
         where: { id: requestId },
         data: cleanedData,
         include: {
-          user: {
+          User: {
             select: { name: true, email: true }
           }
         }
@@ -524,9 +533,9 @@ export class AdminSettingsService {
     try {
       return await prisma.offer.findMany({
         include: {
-          products: {
+          ProductOffer: {
             include: {
-              dataItem: {
+              DataItem: {
                 select: { title: true, price: true }
               }
             }
@@ -546,13 +555,19 @@ export class AdminSettingsService {
       
       // Create offer
       const offer = await prisma.offer.create({
-        data: offerFields
+        data: {
+          id: crypto.randomUUID(),
+          ...offerFields,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
       });
 
       // If productIds provided, create ProductOffer relations
       if (productIds && Array.isArray(productIds) && productIds.length > 0) {
         await prisma.productOffer.createMany({
           data: productIds.map((productId: string) => ({
+            id: crypto.randomUUID(),
             offerId: offer.id,
             dataItemId: productId
           }))
@@ -587,6 +602,7 @@ export class AdminSettingsService {
         if (Array.isArray(productIds) && productIds.length > 0) {
           await prisma.productOffer.createMany({
             data: productIds.map((productId: string) => ({
+            id: crypto.randomUUID(),
               offerId: offer.id,
               dataItemId: productId
             }))
@@ -632,9 +648,12 @@ export class AdminSettingsService {
   }) {
     return await prisma.deliverySettings.create({
       data: {
+        id: crypto.randomUUID(),
         ...data,
         availableDeliveryDays: data.availableDeliveryDays ? JSON.stringify(data.availableDeliveryDays) : null,
-        deliveryAreas: data.deliveryAreas ? JSON.stringify(data.deliveryAreas) : null
+        deliveryAreas: data.deliveryAreas ? JSON.stringify(data.deliveryAreas) : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
   }
@@ -709,8 +728,11 @@ export class AdminSettingsService {
   }) {
     return await prisma.paymentMethod.create({
       data: {
+        id: crypto.randomUUID(),
         ...data,
-        settings: data.settings ? JSON.stringify(data.settings) : null
+        settings: data.settings ? JSON.stringify(data.settings) : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
   }
@@ -893,7 +915,7 @@ export class AdminSettingsService {
           dataItem: {
             select: { title: true }
           },
-          user: {
+          User: {
             select: { name: true }
           }
         }
@@ -949,7 +971,7 @@ export class AdminSettingsService {
         category: {
           select: { name: true }
         },
-        stockMovements: {
+        StockMovement: {
           take: 5,
           orderBy: { createdAt: 'desc' }
         }
@@ -967,8 +989,7 @@ export class AdminSettingsService {
         where: { id: orderId },
         include: {
           orderItems: {
-            include: {
-              dataItem: true
+            include: { dataItem: true
             }
           }
         }
@@ -1021,6 +1042,7 @@ export class AdminSettingsService {
         // Înregistrează mișcarea de stoc
         await prisma.stockMovement.create({
           data: {
+            id: crypto.randomUUID(),
             dataItemId: item.dataItemId,
             type: 'OUT',
             quantity: item.quantity,
@@ -1044,8 +1066,7 @@ export class AdminSettingsService {
         where: { id: orderId },
         include: {
           orderItems: {
-            include: {
-              dataItem: true
+            include: { dataItem: true
             }
           }
         }
@@ -1091,11 +1112,13 @@ export class AdminSettingsService {
         // Înregistrează mișcarea de stoc
         await prisma.stockMovement.create({
           data: {
+            id: crypto.randomUUID(),
             dataItemId: item.dataItemId,
             type: 'RELEASED',
             quantity: item.quantity,
             reason: `Comandă anulată #${orderId.slice(-6)}`,
-            orderId: orderId
+            orderId: orderId,
+            createdAt: new Date(),
           }
         });
       }
@@ -1114,8 +1137,7 @@ export class AdminSettingsService {
         where: { id: orderId },
         include: {
           orderItems: {
-            include: {
-              dataItem: true
+            include: { dataItem: true
             }
           }
         }
@@ -1155,11 +1177,13 @@ export class AdminSettingsService {
         // Înregistrează mișcarea de stoc
         await prisma.stockMovement.create({
           data: {
+            id: crypto.randomUUID(),
             dataItemId: item.dataItemId,
             type: 'RESERVED',
             quantity: item.quantity,
             reason: `Comandă plasată #${orderId.slice(-6)}`,
-            orderId: orderId
+            orderId: orderId,
+            createdAt: new Date(),
           }
         });
       }

@@ -1,18 +1,18 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { realtimeService } from './realtime.service';
 
 const prisma = new PrismaClient();
 
 export class PageService {
-  // Obține toate paginile
   async getAllPages() {
     return await prisma.page.findMany({
       include: {
-        sections: {
+        PageSection: {
           where: { isVisible: true },
           orderBy: { position: 'asc' }
         },
-        createdBy: {
+        User: {
           select: { name: true, email: true }
         }
       },
@@ -25,11 +25,11 @@ export class PageService {
     return await prisma.page.findUnique({
       where: { slug },
       include: {
-        sections: {
+        PageSection: {
           where: { isVisible: true },
           orderBy: { position: 'asc' }
         },
-        createdBy: {
+        User: {
           select: { name: true, email: true }
         }
       }
@@ -41,10 +41,10 @@ export class PageService {
     return await prisma.page.findUnique({
       where: { id },
       include: {
-        sections: {
+        PageSection: {
           orderBy: { position: 'asc' }
         },
-        createdBy: {
+        User: {
           select: { name: true, email: true }
         }
       }
@@ -63,10 +63,15 @@ export class PageService {
     createdById: string;
   }) {
     const page = await prisma.page.create({
-      data,
+      data: {
+        id: crypto.randomUUID(),
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
       include: {
-        sections: true,
-        createdBy: {
+        PageSection: true,
+        User: {
           select: { name: true, email: true }
         }
       }
@@ -103,10 +108,10 @@ export class PageService {
         updatedAt: new Date()
       },
       include: {
-        sections: {
+        PageSection: {
           orderBy: { position: 'asc' }
         },
-        createdBy: {
+        User: {
           select: { name: true, email: true }
         }
       }
@@ -170,9 +175,12 @@ export class PageService {
 
     const section = await prisma.pageSection.create({
       data: {
+        id: crypto.randomUUID(),
         ...data,
         pageId,
-        settings: data.settings ? JSON.stringify(data.settings) : null
+        settings: data.settings ? JSON.stringify(data.settings) : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
 
@@ -279,8 +287,8 @@ export class PageService {
       where: { id },
       data: { isPublished: !currentPage.isPublished },
       include: {
-        sections: true,
-        createdBy: {
+        PageSection: true,
+        User: {
           select: { name: true, email: true }
         }
       }
@@ -305,7 +313,7 @@ export class PageService {
     return await prisma.page.findMany({
       where: { isPublished: true },
       include: {
-        sections: {
+        PageSection: {
           where: { isVisible: true },
           orderBy: { position: 'asc' }
         }

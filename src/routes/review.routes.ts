@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { prisma } from '../utils/prisma';
@@ -25,7 +26,7 @@ export async function reviewRoutes(fastify: FastifyInstance) {
       const reviews = await prisma.review.findMany({
         where: { dataItemId: productId },
         include: {
-          user: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -73,13 +74,16 @@ export async function reviewRoutes(fastify: FastifyInstance) {
 
       const review = await prisma.review.create({
         data: {
+          id: crypto.randomUUID(),
           userId,
           dataItemId,
           rating,
           comment,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         include: {
-          user: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -123,7 +127,7 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         where: { id },
         data: { rating, comment },
         include: {
-          user: {
+          User: {
             select: {
               id: true,
               name: true,

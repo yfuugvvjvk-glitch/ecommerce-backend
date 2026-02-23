@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -80,13 +81,16 @@ export class UserCardService {
 
       const newCard = await prisma.savedCard.create({
         data: {
+          id: crypto.randomUUID(),
           userId,
           cardNumber: last4Digits,
           cardHolder: cardData.cardHolder,
           expiryMonth: cardData.expiryMonth,
           expiryYear: cardData.expiryYear,
           cardType: cardData.cardType,
-          isDefault
+          isDefault,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }
       });
 
@@ -200,6 +204,7 @@ export class UserCardService {
         // Înregistrează tranzacția
         await prisma.cardTransaction.create({
           data: {
+            id: crypto.randomUUID(),
             userId,
             fictiveCardId: paymentData.cardId,
             orderId: paymentData.orderId,
@@ -208,7 +213,8 @@ export class UserCardService {
             status: 'COMPLETED',
             cardLast4: fictiveCard.cardNumber.slice(-4),
             cardType: fictiveCard.cardType,
-            description: `Payment for order ${paymentData.orderId}`
+            description: `Payment for order ${paymentData.orderId}`,
+            createdAt: new Date(),
           }
         });
 
@@ -237,6 +243,7 @@ export class UserCardService {
         // Înregistrează tranzacția
         await prisma.cardTransaction.create({
           data: {
+            id: crypto.randomUUID(),
             userId,
             orderId: paymentData.orderId,
             amount: paymentData.amount,
@@ -244,7 +251,8 @@ export class UserCardService {
             status: 'COMPLETED',
             cardLast4: savedCard.cardNumber,
             cardType: savedCard.cardType,
-            description: `Payment for order ${paymentData.orderId}`
+            description: `Payment for order ${paymentData.orderId}`,
+            createdAt: new Date(),
           }
         });
 
@@ -270,7 +278,7 @@ export class UserCardService {
           status: 'COMPLETED'
         },
         include: {
-          fictiveCard: true
+          FictiveCard: true
         }
       });
 
@@ -293,6 +301,7 @@ export class UserCardService {
       // Înregistrează tranzacția de rambursare
       await prisma.cardTransaction.create({
         data: {
+          id: crypto.randomUUID(),
           userId,
           fictiveCardId: transaction.fictiveCardId,
           orderId,
@@ -301,7 +310,8 @@ export class UserCardService {
           status: 'COMPLETED',
           cardLast4: transaction.cardLast4,
           cardType: transaction.cardType,
-          description: `Refund for order ${orderId}`
+          description: `Refund for order ${orderId}`,
+          createdAt: new Date(),
         }
       });
 

@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
@@ -156,7 +157,12 @@ async function initializeCurrencies() {
       }
 
       await prisma.currency.create({
-        data: currency,
+        data: {
+          id: crypto.randomUUID(),
+          ...currency,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
       console.log(`✅ Moneda ${currency.code} (${currency.name}) a fost adăugată`);
@@ -210,10 +216,13 @@ async function initializeCurrencies() {
 
       await prisma.exchangeRate.create({
         data: {
+          id: crypto.randomUUID(),
           fromCurrencyId: fromCurrency.id,
           toCurrencyId: toCurrency.id,
           rate: rate.rate,
           source: 'manual',
+          createdAt: new Date(),
+          lastUpdated: new Date(),
         },
       });
 
